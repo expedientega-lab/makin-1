@@ -1,0 +1,103 @@
+{
+  "orders": {
+    "mystika-orbe-1778171992972-7ae299b3": {
+      "orderId": "mystika-orbe-1778171992972-7ae299b3",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-07T16:39:52.999Z",
+      "updatedAt": "2026-05-07T16:39:54.249Z",
+      "invoiceId": "4851239500"
+    },
+    "mystika-orbe-1778172819284-461be9c7": {
+      "orderId": "mystika-orbe-1778172819284-461be9c7",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-07T16:53:39.298Z",
+      "updatedAt": "2026-05-07T16:53:40.793Z",
+      "invoiceId": "6197506230"
+    },
+    "mystika-orbe-1778172868179-a98b09ae": {
+      "orderId": "mystika-orbe-1778172868179-a98b09ae",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-07T16:54:28.191Z",
+      "updatedAt": "2026-05-07T16:54:28.712Z",
+      "invoiceId": "5483086209"
+    },
+    "8NU697024W192425B": {
+      "orderId": "8NU697024W192425B",
+      "clientId": "6b2cfedc-350c-45ba-8ac2-ea48f630bdc2",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T13:09:51.953Z",
+      "updatedAt": "2026-05-08T13:09:51.953Z"
+    },
+    "3EE14069XX1599949": {
+      "orderId": "3EE14069XX1599949",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T13:12:16.121Z",
+      "updatedAt": "2026-05-08T13:12:16.121Z"
+    },
+    "2DH616241J958335Y": {
+      "orderId": "2DH616241J958335Y",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T13:12:31.967Z",
+      "updatedAt": "2026-05-08T13:12:31.967Z"
+    },
+    "01X45902UG548870M": {
+      "orderId": "01X45902UG548870M",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T13:17:37.826Z",
+      "updatedAt": "2026-05-08T13:17:37.826Z"
+    },
+    "8W2811702U642240P": {
+      "orderId": "8W2811702U642240P",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T13:17:49.154Z",
+      "updatedAt": "2026-05-08T13:17:49.154Z"
+    },
+    "95W860632F544951B": {
+      "orderId": "95W860632F544951B",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-galleta",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T13:23:18.254Z",
+      "updatedAt": "2026-05-08T13:23:18.254Z"
+    },
+    "92175144RC651133F": {
+      "orderId": "92175144RC651133F",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-08T20:13:29.298Z",
+      "updatedAt": "2026-05-08T20:13:29.298Z"
+    },
+    "6PG63764YN045442T": {
+      "orderId": "6PG63764YN045442T",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-10T18:32:14.372Z",
+      "updatedAt": "2026-05-10T18:32:14.372Z"
+    },
+    "11E92468T5774934A": {
+      "orderId": "11E92468T5774934A",
+      "clientId": "8fcd6491-d5fe-4501-86b3-3a745aa5429e",
+      "productId": "mystika-orbe",
+      "paymentStatus": "waiting",
+      "createdAt": "2026-05-10T20:23:54.779Z",
+      "updatedAt": "2026-05-10T20:23:54.779Z"
+    }
+  }
+}

@@ -1,0 +1,233 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --bg0: #0a0612;
+  --bg1: #0f0a1a;
+  --bg2: #150e24;
+  --bg3: #1c1430;
+  --bg4: #251b3f;
+
+  --mystik: #b388ff;
+  --mystik2: #9966ff;
+  --mystik3: #7744cc;
+  --mystikS: rgba(179, 136, 255, 0.15);
+  --mystikG: rgba(179, 136, 255, 0.07);
+
+  --gold: #ffd700;
+  --goldS: rgba(255, 215, 0, 0.15);
+  --rose: #ff6b9d;
+  --roseS: rgba(255, 107, 157, 0.15);
+  --cyan: #00e5ff;
+  --green: #00ff9d;
+  --greenS: rgba(0, 255, 157, 0.12);
+
+  --txt: #e8dff5;
+  --txt2: rgba(232, 223, 245, 0.82);
+  --txt3: rgba(232, 223, 245, 0.62);
+  --txt4: rgba(232, 223, 245, 0.35);
+
+  --border: rgba(179, 136, 255, 0.18);
+  --borderH: rgba(179, 136, 255, 0.4);
+
+  --background: #0a0612;
+  --foreground: #e8dff5;
+  --card: #150e24;
+  --card-foreground: #e8dff5;
+  --popover: #150e24;
+  --popover-foreground: #e8dff5;
+  --primary: #b388ff;
+  --primary-foreground: #0a0612;
+  --secondary: #1c1430;
+  --secondary-foreground: #e8dff5;
+  --muted: #1c1430;
+  --muted-foreground: rgba(232, 223, 245, 0.6);
+  --accent: #ffd700;
+  --accent-foreground: #0a0612;
+  --destructive: #ff6b9d;
+  --destructive-foreground: #0a0612;
+  --border-color: rgba(179, 136, 255, 0.18);
+  --input: rgba(179, 136, 255, 0.18);
+  --ring: #b388ff;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --font-sans: 'Cinzel', serif;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-display: 'Cinzel Decorative', serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border-color);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+}
+
+/* Mystical scanlines */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(179, 136, 255, 0.02) 2px,
+    rgba(179, 136, 255, 0.02) 4px
+  );
+}
+
+/* Mystical glow vignette */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: 
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(179, 136, 255, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 20% 100%, rgba(255, 107, 157, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 100%, rgba(0, 229, 255, 0.05) 0%, transparent 50%);
+}
+
+/* Animations */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes livepulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.7); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes mystikpulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(-2deg); }
+}
+
+@keyframes blinkit {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes float-ball {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes ctamove {
+  to { background-position: 200% center; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(300%); }
+}
+
+@keyframes fadeup {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes popin {
+  from { transform: scale(0) rotate(-20deg); opacity: 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(179, 136, 255, 0.3), 0 0 40px rgba(179, 136, 255, 0.1); }
+  50% { box-shadow: 0 0 30px rgba(179, 136, 255, 0.5), 0 0 60px rgba(179, 136, 255, 0.2); }
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes crystal-spin {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(60px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(60px) rotate(-360deg); }
+}
+
+@keyframes cookie-crack {
+  0%, 40% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.1) rotate(-5deg); }
+  60% { transform: scale(1.05) rotate(3deg); }
+  70% { transform: scale(1.08) rotate(-2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes reveal-message {
+  0% { opacity: 0; transform: translateY(20px) scale(0.8); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes lockpulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes confetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-200px) rotate(720deg); opacity: 0; }
+}
