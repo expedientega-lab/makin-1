@@ -1,13 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { PaypalCheckout } from "@/components/payments/paypal-checkout";
+import { PaypalCheckout, type PaypalSuccessContext } from "@/components/payments/paypal-checkout";
 import { useTrappedDialog } from "@/hooks/use-trapped-dialog";
 
 interface PayModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPaymentSuccess: () => void;
+  /** Usuario cerró el modal (cancelar, backdrop, Escape) sin pagar */
+  onDismiss?: () => void;
+  /** PayPal cancelado en su ventana */
+  onPayPalCancel?: () => void;
+  /** Error de red, orden o captura — el modal sigue abierto */
+  onPaymentError?: (message: string) => void;
+  onPaymentSuccess: (ctx: PaypalSuccessContext) => void;
   productId?: string;
   title?: string;
   description?: string;
@@ -17,6 +23,9 @@ interface PayModalProps {
 export function PayModal({
   isOpen,
   onClose,
+  onDismiss,
+  onPayPalCancel,
+  onPaymentError,
   onPaymentSuccess,
   productId = "mystika-orbe",
   title = "Revelar tu Destino",
@@ -27,12 +36,15 @@ export function PayModal({
 
   const handleClose = () => {
     setError(null);
+    onDismiss?.();
     onClose();
   };
 
   const panelRef = useTrappedDialog(isOpen, handleClose);
 
   if (!isOpen) return null;
+
+  const isOrbe = productId === "mystika-orbe";
 
   return (
     <div
@@ -92,18 +104,34 @@ export function PayModal({
               🔮
             </div>
 
-            <div className="font-mono text-[11px] tracking-[4px] text-[var(--mystik3)] mb-2">
-              PORTAL DE PAGO SEGURO
-            </div>
+            {!isOrbe && (
+              <div className="font-mono text-[11px] tracking-[4px] text-[var(--mystik3)] mb-2">
+                PORTAL DE PAGO SEGURO
+              </div>
+            )}
             <div
               id="mystika-pay-modal-title"
-              className="font-display font-black text-[26px] text-[var(--txt)] tracking-[1px] leading-tight mb-2"
+              className={[
+                "font-display font-black text-[var(--txt)] leading-tight",
+                isOrbe
+                  ? "text-[28px] tracking-[0.12em] text-[var(--mystik)] mb-3"
+                  : "text-[26px] tracking-[1px] mb-2",
+              ].join(" ")}
             >
               {title}
             </div>
-            <p className="text-[14px] text-[var(--txt2)] leading-relaxed max-w-[300px] mx-auto">
-              {description}
-            </p>
+            {description && (
+              <p
+                className={[
+                  "leading-relaxed max-w-[320px] mx-auto",
+                  isOrbe
+                    ? "text-[11px] text-[var(--txt3)] font-mono"
+                    : "text-[14px] text-[var(--txt2)]",
+                ].join(" ")}
+              >
+                {description}
+              </p>
+            )}
           </div>
 
           {/* Price display */}
@@ -134,7 +162,7 @@ export function PayModal({
                 <span style={{ fontSize: "20px", verticalAlign: "super" }}>
                   $
                 </span>
-                {price}
+                {Number.isInteger(price) ? price : price.toFixed(2)}
               </div>
               <div className="font-mono text-[11px] text-[var(--gold3)]">
                 USD
@@ -189,10 +217,17 @@ export function PayModal({
           {/* PayPal */}
           <PaypalCheckout
             productId={productId}
-            onError={(message) => setError(message)}
-            onSuccess={() => {
+            amountUsd={
+              productId === "mystika-donacion-custom" ? price : undefined
+            }
+            onError={(message) => {
+              setError(message);
+              onPaymentError?.(message);
+            }}
+            onCancel={() => onPayPalCancel?.()}
+            onSuccess={(ctx) => {
               setError(null);
-              onPaymentSuccess();
+              onPaymentSuccess(ctx);
             }}
           />
         </div>

@@ -8,6 +8,7 @@ import {
   saveSession,
   sessionRemainingMs,
 } from '@/lib/deseos-store'
+import { blockedIpResponse } from '@/lib/security-guard'
 
 function getIpHash(req: NextRequest): string | undefined {
   const forwarded = req.headers.get('x-forwarded-for')
@@ -31,6 +32,9 @@ function sessionPayload(session: Awaited<ReturnType<typeof getActiveSession>>) {
 }
 
 export async function GET(req: NextRequest) {
+  const blocked = await blockedIpResponse(req.headers)
+  if (blocked) return blocked
+
   const clientId = await getOrCreateMkClientId()
   const ipHash = getIpHash(req)
 
@@ -55,6 +59,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const blocked = await blockedIpResponse(req.headers)
+  if (blocked) return blocked
+
   const clientId = await getOrCreateMkClientId()
   const ipHash = getIpHash(req)
 

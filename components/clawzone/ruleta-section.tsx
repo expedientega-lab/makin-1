@@ -29,12 +29,14 @@ export function RuletaSection({ hasPaid, onRequestPay }: RuletaSectionProps) {
 
     ctx.clearRect(0, 0, 310, 310)
 
-    // Outer glow
-    const outerGrad = ctx.createRadialGradient(cx, cy, r - 10, cx, cy, r + 10)
-    outerGrad.addColorStop(0, 'rgba(0,212,255,0.2)')
+    // Outer glow (más intenso al girar)
+    const outerGrad = ctx.createRadialGradient(cx, cy, r - 6, cx, cy, r + 36)
+    const glowAlpha = spinning ? 0.45 : 0.18
+    outerGrad.addColorStop(0, `rgba(0,212,255,${glowAlpha})`)
+    outerGrad.addColorStop(0.6, `rgba(179,136,255,${glowAlpha * 0.7})`)
     outerGrad.addColorStop(1, 'transparent')
     ctx.beginPath()
-    ctx.arc(cx, cy, r + 8, 0, Math.PI * 2)
+    ctx.arc(cx, cy, r + 22, 0, Math.PI * 2)
     ctx.fillStyle = outerGrad
     ctx.fill()
 
@@ -91,13 +93,51 @@ export function RuletaSection({ hasPaid, onRequestPay }: RuletaSectionProps) {
     ctx.lineWidth = 2
     ctx.stroke()
 
+    // Outer light ring intensificado + efecto barrido cuando gira
+    const lightRingRadius = r + 26
+    const lightCount = 36
+    const normalizedAngle = ((angle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+    for (let i = 0; i < lightCount; i += 1) {
+      const theta = (Math.PI * 2 * i) / lightCount - Math.PI / 2
+      const lx = cx + Math.cos(theta) * lightRingRadius
+      const ly = cy + Math.sin(theta) * lightRingRadius
+
+      // factor que resalta las luces cercanas al ángulo de giro (barrido)
+      const dist = Math.abs(Math.atan2(Math.sin(theta - -normalizedAngle), Math.cos(theta - -normalizedAngle)))
+      const proximity = Math.max(0, 1 - dist / 0.7)
+      const sweep = spinning ? Math.pow(proximity, 1.6) : 0
+
+      const baseAlpha = spinning ? 0.28 : 0.18
+      const alpha = Math.min(1, baseAlpha + 0.9 * sweep + 0.08 * Math.sin(i * 1.3 + angle * 6))
+      const size = 5 + 6 * sweep
+      const color = i % 2 === 0 ? `rgba(0,212,255,${alpha})` : `rgba(179,136,255,${alpha})`
+
+      ctx.beginPath()
+      ctx.arc(lx, ly, size, 0, Math.PI * 2)
+      ctx.fillStyle = color
+      ctx.shadowColor = color
+      ctx.shadowBlur = 12 + 26 * sweep
+      ctx.fill()
+    }
+    ctx.shadowBlur = 0
+
+    // Barrido radial: anillo brillante que se mueve con el ángulo
+    if (spinning) {
+      ctx.beginPath()
+      ctx.lineWidth = 8
+      const sweepAlpha = 0.14 + 0.18 * Math.abs(Math.sin(angle * 2.2))
+      ctx.strokeStyle = `rgba(0,212,255,${sweepAlpha})`
+      ctx.arc(cx, cy, r + 10, -normalizedAngle - 0.35, -normalizedAngle + 0.35)
+      ctx.stroke()
+    }
+
     ctx.font = '14px serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.shadowColor = 'var(--neon)'
     ctx.shadowBlur = 10
     ctx.fillText('🎮', cx, cy)
-  }, [])
+  }, [spinning])
 
   useEffect(() => {
     drawWheel(0)
@@ -197,7 +237,11 @@ export function RuletaSection({ hasPaid, onRequestPay }: RuletaSectionProps) {
           width={310}
           height={310}
           className="rounded-full"
-          style={{ boxShadow: '0 0 60px rgba(0,212,255,.1),0 0 120px rgba(0,0,0,.5)' }}
+          style={{
+            boxShadow: spinning
+              ? '0 0 90px rgba(0,212,255,.22),0 0 180px rgba(0,212,255,.16)'
+              : '0 0 60px rgba(0,212,255,.1),0 0 120px rgba(0,0,0,.5)',
+          }}
         />
       </div>
 

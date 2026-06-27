@@ -1,22 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react'
 import type { Deseo } from '@/lib/deseos-pool'
-
-type DeseosStatus = {
-  locked: boolean
-  name?: string
-  deseos?: Deseo[]
-  lockedUntil?: string
-  remainingMs?: number
-  reason?: 'ip_cooldown'
-}
-
-async function fetchDeseosStatus(): Promise<DeseosStatus> {
-  const res = await fetch('/api/deseos', { credentials: 'include', cache: 'no-store' })
-  if (!res.ok) return { locked: false }
-  return res.json()
-}
+import {
+  fetchDeseosStatus,
+  hydrateDeseosFromCache,
+  writeDeseosCache,
+  type DeseosStatus,
+} from '@/lib/deseos-client-cache'
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return '00:00:00'
@@ -50,7 +41,15 @@ export function DeseosSection() {
   const [lockedUntil, setLockedUntil] = useState<number | null>(null)
   const [countdown, setCountdown] = useState('')
   const [unlocked, setUnlocked] = useState(false)
-  const [ready, setReady] = useState(false)
+  const syncedRef = useRef(false)
+
+  useLayoutEffect(() => {
+    const cached = hydrateDeseosFromCache()
+    if (cached.name) setName(cached.name)
+    if (cached.deseos.length) setDeseos(cached.deseos)
+    if (cached.lockedUntil) setLockedUntil(cached.lockedUntil)
+    if (cached.phase === 'done') setPhase('done')
+  }, [])
 
   const syncFromServer = useCallback(async () => {
     const status = await fetchDeseosStatus()
@@ -64,14 +63,9 @@ export function DeseosSection() {
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      await syncFromServer()
-      if (!cancelled) setReady(true)
-    })()
-    return () => {
-      cancelled = true
-    }
+    if (syncedRef.current) return
+    syncedRef.current = true
+    void syncFromServer()
   }, [syncFromServer])
 
   useEffect(() => {
@@ -119,6 +113,7 @@ export function DeseosSection() {
         setDeseos(data.deseos)
         setPhase('done')
         if (data.lockedUntil) setLockedUntil(new Date(data.lockedUntil).getTime())
+        writeDeseosCache(data)
       }
     } catch {
       setPhase('idle')
@@ -126,15 +121,6 @@ export function DeseosSection() {
   }, [name, phase])
 
   const isLocked = lockedUntil !== null && Date.now() < lockedUntil
-
-  if (!ready) {
-    return (
-      <div className="animate-[fadeup_0.4s_ease] text-center py-16">
-        <div className="w-8 h-8 border-2 border-[var(--mystik)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="font-mono text-[12px] tracking-[2px] text-[var(--txt2)]">CONECTANDO CON EL PORTAL...</p>
-      </div>
-    )
-  }
 
   return (
     <div className="animate-[fadeup_0.4s_ease]">

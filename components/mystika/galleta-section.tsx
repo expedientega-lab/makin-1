@@ -438,8 +438,17 @@ export function GalletaSection({
                           }
                         </div>
                         {!isPaid ? (
-                          <div className="px-3 py-1.5 rounded-full bg-[var(--gold)] text-[11px] font-black text-[var(--bg0)] shadow-lg">
-                            ${sub.price}
+                          <div
+                            className="px-4 py-2 rounded-full shadow-lg flex items-center justify-center min-w-[96px] border"
+                            style={{
+                              background: "var(--bg0)",
+                              borderColor: "var(--gold)",
+                              boxShadow: "0 0 14px rgba(255,215,0,0.35)",
+                            }}
+                          >
+                            <span className="font-mono text-[11px] tracking-[2px] text-[var(--gold)]">
+                              ${sub.price} USD
+                            </span>
                           </div>
                         ) : (
                           <div className="w-6 h-6 rounded-full bg-[var(--green)] flex items-center justify-center shadow-lg">

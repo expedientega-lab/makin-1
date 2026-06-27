@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { waitForServerPaymentConfirmation } from "@/lib/payment-verify-client";
 
 declare global {
   interface Window {
@@ -8,10 +9,17 @@ declare global {
   }
 }
 
+export type PaypalSuccessContext = {
+  orderId: string;
+  productId: string;
+};
+
 interface PaypalCheckoutProps {
   productId: string;
-  onSuccess: () => void;
+  amountUsd?: number;
+  onSuccess: (ctx: PaypalSuccessContext) => void;
   onError: (message: string) => void;
+  onCancel?: () => void;
 }
 
 const SDK_ATTR = "data-paypal-sdk-smart-buttons";
@@ -49,14 +57,19 @@ function loadPaypalScript(clientId: string): Promise<void> {
 
 export function PaypalCheckout({
   productId,
+  amountUsd,
   onSuccess,
   onError,
+  onCancel,
 }: PaypalCheckoutProps) {
   const [loading, setLoading] = useState(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonsCleanupRef = useRef<(() => void) | null>(null);
   const onSuccessRef = useRef(onSuccess);
   const onErrorRef = useRef(onError);
+  const onCancelRef = useRef(onCancel);
+  const productIdRef = useRef(productId);
+  const amountUsdRef = useRef(amountUsd);
 
   useEffect(() => {
     onSuccessRef.current = onSuccess;
@@ -67,13 +80,32 @@ export function PaypalCheckout({
   }, [onError]);
 
   useEffect(() => {
+    onCancelRef.current = onCancel;
+  }, [onCancel]);
+
+  useEffect(() => {
+    productIdRef.current = productId;
+  }, [productId]);
+
+  useEffect(() => {
+    amountUsdRef.current = amountUsd;
+  }, [amountUsd]);
+
+  useEffect(() => {
     let active = true;
 
     const createOrder = async () => {
+      const payload: { productId: string; amountUsd?: number } = {
+        productId: productIdRef.current,
+      };
+      if (amountUsdRef.current !== undefined) {
+        payload.amountUsd = amountUsdRef.current;
+      }
+
       const resp = await fetch("/api/paypal/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify(payload),
       });
       const data = await resp.json();
       if (!resp.ok || !data.id) {
@@ -93,10 +125,23 @@ export function PaypalCheckout({
       const captured =
         data?.status === "COMPLETED" ||
         data?.purchase_units?.[0]?.payments?.captures?.[0]?.status ===
-          "COMPLETED";
-      if (!resp.ok || !captured)
+          "COMPLETED" ||
+        data?.verified === true;
+      if (!resp.ok || !captured) {
         throw new Error(data.error || "Pago no completado");
-      onSuccessRef.current();
+      }
+
+      const confirmed = await waitForServerPaymentConfirmation(orderId);
+      if (!confirmed.paid) {
+        throw new Error(
+          "El pago no fue confirmado en el servidor. Esperá unos segundos e intentá de nuevo.",
+        );
+      }
+
+      onSuccessRef.current({
+        orderId,
+        productId: confirmed.productId ?? productIdRef.current,
+      });
     };
 
     const init = async () => {
@@ -122,7 +167,7 @@ export function PaypalCheckout({
           },
           createOrder,
           onApprove: (data: { orderID: string }) => captureOrder(data.orderID),
-          onCancel: () => {},
+          onCancel: () => onCancelRef.current?.(),
           onError: (err: unknown) =>
             onErrorRef.current(
               err instanceof Error ? err.message : String(err),
@@ -157,7 +202,7 @@ export function PaypalCheckout({
       buttonsCleanupRef.current?.();
       buttonsCleanupRef.current = null;
     };
-  }, [productId]);
+  }, [productId, amountUsd]);
 
   return (
     <div className="space-y-3">

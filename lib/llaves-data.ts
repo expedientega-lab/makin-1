@@ -8,6 +8,12 @@ export interface LlavesStock {
 
 export type LlavePremioKind = "galleta" | "universo";
 
+export interface LlavePrizePreview {
+  icon: string;
+  label: string;
+  color: string;
+}
+
 export interface LlaveTierInfo {
   tier: LlaveTier;
   priceUSD: number;
@@ -17,7 +23,8 @@ export interface LlaveTierInfo {
   shortName: string;
   keyColor: string;
   keyShadow: string;
-  description: string;
+  /** Premios posibles mostrados en la carta (visual). */
+  prizes: LlavePrizePreview[];
 }
 
 export const LLAVE_TIERS: LlaveTierInfo[] = [
@@ -29,7 +36,12 @@ export const LLAVE_TIERS: LlaveTierInfo[] = [
     shortName: "Llave cobre",
     keyColor: "linear-gradient(145deg,#b87333,#6a3a12)",
     keyShadow: "0 4px 18px rgba(184,115,51,0.45)",
-    description: "te podes ganar sobres, caja misteriosa.",
+    prizes: [
+      { icon: "💵", label: "$5 USD", color: "#00ff9d" },
+      { icon: "✉️", label: "Sobres", color: "#b388ff" },
+      { icon: "📦", label: "Caja misteriosa", color: "#ff6b9d" },
+      { icon: "🥠", label: "Galleta", color: "#ffd700" },
+    ],
   },
   {
     tier: 5,
@@ -39,7 +51,12 @@ export const LLAVE_TIERS: LlaveTierInfo[] = [
     shortName: "Llave plata",
     keyColor: "linear-gradient(145deg,#e8ecf2,#8a93a8)",
     keyShadow: "0 4px 22px rgba(200,210,230,0.5)",
-    description: "premio puede ser caja misteriosa y galleta.",
+    prizes: [
+      { icon: "💵", label: "$10 USD", color: "#00ff9d" },
+      { icon: "📦", label: "Caja misteriosa", color: "#ff6b9d" },
+      { icon: "🥠", label: "Galleta", color: "#ffd700" },
+      { icon: "✨", label: "Mensaje del universo", color: "#00e5ff" },
+    ],
   },
   {
     tier: 20,
@@ -49,7 +66,12 @@ export const LLAVE_TIERS: LlaveTierInfo[] = [
     shortName: "Llave aurum",
     keyColor: "linear-gradient(145deg,#ffe566,#c9a227)",
     keyShadow: "0 4px 26px rgba(255,215,0,0.55)",
-    description: "te podes ganar , 30 dolaresm caja misteriosa, o galleta de la suerte,",
+    prizes: [
+      { icon: "💵", label: "$30 USD", color: "#00ff9d" },
+      { icon: "📦", label: "Caja misteriosa", color: "#ff6b9d" },
+      { icon: "🥠", label: "Galleta de la suerte", color: "#ffd700" },
+      { icon: "✨", label: "Mensaje cósmico", color: "#00e5ff" },
+    ],
   },
 ];
 

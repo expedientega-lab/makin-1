@@ -6,6 +6,9 @@ interface HeaderProps {
   onlineCount: number;
   onPlay?: () => void;
   onGoJackpot?: () => void;
+  onOpenFiveGame?: () => void;
+  /** Solo `next dev` (localhost / ngrok) — abre el mini juego sin pagar. */
+  onDevTestFiveGame?: () => void;
 }
 
 const liveCountries = [
@@ -84,7 +87,13 @@ function buildInitialRow(countryIndex: number): LiveRow {
   };
 }
 
-export function Header({ onlineCount, onPlay, onGoJackpot }: HeaderProps) {
+export function Header({
+  onlineCount,
+  onPlay,
+  onGoJackpot,
+  onOpenFiveGame,
+  onDevTestFiveGame,
+}: HeaderProps) {
   const [liveRow, setLiveRow] = useState<LiveRow>(() => buildInitialRow(0));
   const [pulseKey, setPulseKey] = useState(0);
   const [globalNow, setGlobalNow] = useState(48213);
@@ -279,10 +288,10 @@ export function Header({ onlineCount, onPlay, onGoJackpot }: HeaderProps) {
       </div>
 
       {/* ── Columna derecha ── */}
-      <div className="hidden md:flex md:flex-col md:w-[220px] md:-mr-3 gap-3">
+      <div className="hidden md:flex md:flex-col md:w-[200px] md:-mr-3 gap-2 shrink-0">
         {/* JACKPOT CTA */}
         <div
-          className="relative rounded-xl border overflow-hidden p-4"
+          className="relative rounded-lg border overflow-hidden p-3"
           style={{
             borderColor: "rgba(0,255,157,0.35)",
             background:
@@ -304,14 +313,14 @@ export function Header({ onlineCount, onPlay, onGoJackpot }: HeaderProps) {
           </div>
 
           <div
-            className="text-4xl mb-0.5"
+            className="text-3xl mb-0.5"
             style={{ filter: "drop-shadow(0 0 10px rgba(0,255,157,0.5))" }}
           >
             💵
           </div>
 
           <div
-            className="font-display font-black text-[32px] leading-none mb-0.5"
+            className="font-display font-black text-[28px] leading-none mb-0.5"
             style={{
               color: "#00ff9d",
               textShadow: "0 0 20px rgba(0,255,157,0.6)",
@@ -319,13 +328,13 @@ export function Header({ onlineCount, onPlay, onGoJackpot }: HeaderProps) {
           >
             $1,000
           </div>
-          <div className="font-mono text-[11px] text-[var(--txt3)] tracking-[2px] mb-3">
+          <div className="font-mono text-[10px] text-[var(--txt3)] tracking-[1.5px] mb-2.5">
             USD DISPONIBLE
           </div>
 
           <button
             onClick={onGoJackpot}
-            className="w-full py-2.5 rounded-lg font-mono text-[13px] tracking-[2px] font-black transition-all hover:-translate-y-0.5 active:scale-95"
+            className="w-full py-2 rounded-md font-mono text-[11px] tracking-[0.14em] font-black transition-all hover:-translate-y-0.5 active:scale-95"
             style={{
               background: "linear-gradient(135deg, #00cc7a, #00ff9d)",
               color: "#0a0612",
@@ -334,6 +343,70 @@ export function Header({ onlineCount, onPlay, onGoJackpot }: HeaderProps) {
           >
             JUGAR AHORA →
           </button>
+        </div>
+
+        {/* Mini juego Minas $5 — compacto bajo jackpot */}
+        <div
+          className="relative rounded-lg border overflow-hidden p-3"
+          style={{
+            borderColor: "rgba(255,215,0,0.38)",
+            background:
+              "linear-gradient(145deg, rgba(255,215,0,0.1) 0%, rgba(10,6,18,0.97) 55%)",
+            boxShadow:
+              "0 0 18px rgba(255,215,0,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
+          }}
+        >
+          <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-[rgba(255,215,0,0.4)] rounded-tl-lg" />
+          <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-[rgba(255,215,0,0.4)] rounded-tr-lg" />
+          <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-[rgba(255,215,0,0.4)] rounded-bl-lg" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-[rgba(255,215,0,0.4)] rounded-br-lg" />
+
+          <div className="flex items-center justify-center gap-2 mb-2.5">
+            <span
+              className="text-[26px] leading-none shrink-0"
+              style={{ filter: "drop-shadow(0 0 8px rgba(255,215,0,0.45))" }}
+              aria-hidden
+            >
+              ⛏️
+            </span>
+            <h3
+              className="font-display font-black text-[22px] leading-none tracking-[0.5px]"
+            >
+              <span className="text-[var(--txt)]">GANATE </span>
+              <span
+                style={{
+                  color: "#ffd700",
+                  textShadow: "0 0 16px rgba(255,215,0,0.45)",
+                }}
+              >
+                $5
+              </span>
+            </h3>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenFiveGame}
+            className="w-full py-2 rounded-md font-mono text-[10px] tracking-[0.14em] font-black transition-all hover:-translate-y-0.5 active:scale-95"
+            style={{
+              background: "linear-gradient(135deg, #e8b84a, #ffd700)",
+              color: "#1a1205",
+              boxShadow: "0 4px 14px rgba(255,215,0,0.3)",
+            }}
+          >
+            ABRIR →
+          </button>
+
+          {onDevTestFiveGame && (
+            <button
+              type="button"
+              onClick={onDevTestFiveGame}
+              title="Solo servidor dev local"
+              className="mt-1.5 w-full py-0.5 rounded border border-dashed border-amber-400/45 bg-amber-500/8 font-mono text-[7px] font-bold tracking-[0.1em] text-amber-200/80 transition-colors hover:bg-amber-500/15 active:scale-95"
+            >
+              PROBAR
+            </button>
+          )}
         </div>
       </div>
     </header>

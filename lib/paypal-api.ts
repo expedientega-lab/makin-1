@@ -187,6 +187,41 @@ export async function createPaypalOrder(amount: number, description: string, pro
   return response.json()
 }
 
+export type PaypalOrderDetails = {
+  id?: string
+  status?: string
+  purchase_units?: Array<{
+    custom_id?: string
+    amount?: { value?: string; currency_code?: string }
+    payments?: {
+      captures?: Array<{
+        id?: string
+        status?: string
+        amount?: { value?: string; currency_code?: string }
+      }>
+    }
+  }>
+}
+
+export async function getPaypalOrder(orderId: string): Promise<PaypalOrderDetails> {
+  const accessToken = await getPaypalAccessToken()
+  const apiBase = paypalApiBase()
+  const response = await fetch(`${apiBase}/v2/checkout/orders/${orderId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const err = await response.text()
+    throw new Error(`Error consultando orden PayPal: ${err}`)
+  }
+
+  return (await response.json()) as PaypalOrderDetails
+}
+
 export async function capturePaypalOrder(orderId: string) {
   const accessToken = await getPaypalAccessToken()
   const apiBase = paypalApiBase()
@@ -204,6 +239,50 @@ export async function capturePaypalOrder(orderId: string) {
   }
 
   return response.json()
+}
+
+export type PaypalWebhookHeaders = {
+  transmissionId: string
+  transmissionTime: string
+  certUrl: string
+  authAlgo: string
+  transmissionSig: string
+}
+
+/** Verifica firma de webhook PayPal vía API oficial. */
+export async function verifyPaypalWebhookSignature(
+  headers: PaypalWebhookHeaders,
+  webhookId: string,
+  rawBody: string,
+): Promise<boolean> {
+  const accessToken = await getPaypalAccessToken()
+  const apiBase = paypalApiBase()
+
+  const response = await fetch(`${apiBase}/v1/notifications/verify-webhook-signature`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      transmission_id: headers.transmissionId,
+      transmission_time: headers.transmissionTime,
+      cert_url: headers.certUrl,
+      auth_algo: headers.authAlgo,
+      transmission_sig: headers.transmissionSig,
+      webhook_id: webhookId,
+      webhook_event: JSON.parse(rawBody),
+    }),
+  })
+
+  if (!response.ok) {
+    const err = await response.text()
+    console.error('PayPal webhook verify error:', err)
+    return false
+  }
+
+  const result = (await response.json()) as { verification_status?: string }
+  return result.verification_status === 'SUCCESS'
 }
 
 export async function generatePaypalClientToken() {

@@ -69,12 +69,12 @@ export function MainSection() {
             <div className="mt-2 flex items-center gap-2">
               <div className="h-2 flex-1 bg-[rgba(0,255,157,0.2)] rounded-full overflow-hidden">
                 <div
-                  className="h-full w-[12%] bg-[#00ff9d] rounded-full"
+                  className="h-full w-[42%] bg-[#00ff9d] rounded-full"
                   style={{ boxShadow: "0 0 10px #00ff9d" }}
                 />
               </div>
               <span className="font-mono text-[13px] font-black text-[#00ff9d]">
-                12%
+                42%
               </span>
             </div>
             {/* Animated shine */}
@@ -88,7 +88,7 @@ export function MainSection() {
             />
           </div>
 
-          {/* Bot Trading */}
+          {/* $100 USD — premio del orbe */}
           <div
             className="relative p-6 rounded-xl border-2 overflow-hidden group cursor-pointer transition-all hover:scale-[1.02]"
             style={{
@@ -106,29 +106,29 @@ export function MainSection() {
               className="text-5xl mb-2"
               style={{ filter: "drop-shadow(0 0 15px rgba(0,229,255,0.6))" }}
             >
-              🤖
+              💵
             </div>
             <div className="text-[22px] leading-tight text-[var(--txt)] font-black uppercase">
-              BOT DE TRADING
+              100 DÓLARES USD
             </div>
             <div
               className="font-display font-black text-4xl text-[#00e5ff] mb-1 mt-1"
               style={{ textShadow: "0 0 20px rgba(0,229,255,0.5)" }}
             >
-              $70
+              $100
             </div>
             <div className="mt-1 text-[13px] leading-snug text-[var(--txt)] font-semibold">
-              Ganas: bot de trading valorado en $70
+              Ganas: premio en dólares valorado en $100
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="h-2 flex-1 bg-[rgba(0,229,255,0.2)] rounded-full overflow-hidden">
                 <div
-                  className="h-full w-[28%] bg-[#00e5ff] rounded-full"
+                  className="h-full w-[58%] bg-[#00e5ff] rounded-full"
                   style={{ boxShadow: "0 0 10px #00e5ff" }}
                 />
               </div>
               <span className="font-mono text-[13px] font-black text-[#00e5ff]">
-                28%
+                58%
               </span>
             </div>
           </div>
@@ -168,12 +168,12 @@ export function MainSection() {
             <div className="mt-2 flex items-center gap-2">
               <div className="h-2 flex-1 bg-[rgba(255,107,157,0.2)] rounded-full overflow-hidden">
                 <div
-                  className="h-full w-[22%] bg-[#ff6b9d] rounded-full"
+                  className="h-full w-[48%] bg-[#ff6b9d] rounded-full"
                   style={{ boxShadow: "0 0 10px #ff6b9d" }}
                 />
               </div>
               <span className="font-mono text-[13px] font-black text-[#ff6b9d]">
-                22%
+                48%
               </span>
             </div>
           </div>
@@ -210,12 +210,12 @@ export function MainSection() {
             <div className="mt-2 flex items-center gap-2">
               <div className="h-2 flex-1 bg-[rgba(163,163,163,0.2)] rounded-full overflow-hidden">
                 <div
-                  className="h-full w-[18%] bg-[#d4d4d4] rounded-full"
+                  className="h-full w-[44%] bg-[#d4d4d4] rounded-full"
                   style={{ boxShadow: "0 0 10px #d4d4d4" }}
                 />
               </div>
               <span className="font-mono text-[13px] font-black text-[#d4d4d4]">
-                18%
+                44%
               </span>
             </div>
           </div>
@@ -259,7 +259,7 @@ export function MainSection() {
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-2 w-40 bg-[rgba(255,215,0,0.2)] rounded-full overflow-hidden">
                   <div
-                    className="h-full w-[65%] rounded-full"
+                    className="h-full w-[92%] rounded-full"
                     style={{
                       background:
                         "linear-gradient(90deg, #cc9900, var(--gold))",
@@ -268,7 +268,7 @@ export function MainSection() {
                   />
                 </div>
                 <span className="font-mono text-[14px] text-[var(--gold)] font-black">
-                  65%
+                  92%
                 </span>
               </div>
             </div>
@@ -307,47 +307,6 @@ export function MainSection() {
             {text}
           </div>
         ))}
-      </div>
-
-      {/* Activity Feed */}
-      <div className="border border-[var(--border)] rounded-lg overflow-hidden mb-5 bg-[var(--bg1)]">
-        <div className="p-2 px-4 bg-[var(--bg2)] border-b border-[var(--border)] flex items-center justify-between">
-          <div className="font-mono text-[13px] tracking-[4px] text-[var(--mystik3)]">
-            GANADORES RECIENTES
-          </div>
-          <div className="flex items-center gap-1.5 font-mono text-[13px] font-bold text-[var(--green)]">
-            <div
-              className="w-1.5 h-1.5 rounded-full bg-[var(--green)]"
-              style={{ animation: "livepulse 1.4s infinite" }}
-            />
-            EN VIVO
-          </div>
-        </div>
-        <div className="max-h-[160px] overflow-hidden relative">
-          <div
-            className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none"
-            style={{ background: "linear-gradient(transparent,var(--bg1))" }}
-          />
-          {activityFeed.map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2.5 p-3 px-4 border-b border-[rgba(179,136,255,0.04)] text-sm hover:bg-[var(--mystikG)]"
-            >
-              <div className="text-base flex-shrink-0">{item.icon}</div>
-              <div>
-                <span className="font-semibold text-[var(--mystik)] font-mono text-[14px]">
-                  {item.user}
-                </span>{" "}
-                <span className="text-[var(--txt)] text-[15px]">
-                  {item.item}
-                </span>
-              </div>
-              <div className="font-mono text-[13px] text-[var(--txt2)] whitespace-nowrap ml-auto">
-                {item.time}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Reviews */}

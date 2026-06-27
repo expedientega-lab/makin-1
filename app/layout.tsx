@@ -1,22 +1,28 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import { Cinzel, Cinzel_Decorative, Share_Tech_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { BlockedCutoffFlow } from '@/components/security/blocked-cutoff-flow'
+import { GuardianBot } from '@/components/security/guardian-bot'
+import { getClientIp } from '@/lib/client-ip'
+import { isIpBlocked } from '@/lib/ip-block-store'
+import { isIpBlockExempt } from '@/lib/ip-security'
 import './globals.css'
 
-const cinzel = Cinzel({ 
+const cinzel = Cinzel({
   subsets: ['latin'],
   variable: '--font-cinzel',
   display: 'swap',
 })
 
-const cinzelDecorative = Cinzel_Decorative({ 
+const cinzelDecorative = Cinzel_Decorative({
   subsets: ['latin'],
   weight: ['400', '700', '900'],
   variable: '--font-cinzel-decorative',
   display: 'swap',
 })
 
-const shareTechMono = Share_Tech_Mono({ 
+const shareTechMono = Share_Tech_Mono({
   subsets: ['latin'],
   weight: '400',
   variable: '--font-share-tech',
@@ -25,7 +31,8 @@ const shareTechMono = Share_Tech_Mono({
 
 export const metadata: Metadata = {
   title: 'MYSTIKA · Portal de Destino Digital',
-  description: 'Descubre tu fortuna y gana premios digitales de alto valor. $1,000 USD, Bitcoin, Bot de Trading, Caja Misteriosa y mas. Tu destino te espera.',
+  description:
+    'Descubre tu fortuna y gana premios digitales de alto valor. $1,000 USD, Bitcoin, Bot de Trading, Caja Misteriosa y mas. Tu destino te espera.',
   keywords: ['mystika', 'fortuna', 'premios digitales', 'bitcoin', 'bot trading', 'caja misteriosa'],
 }
 
@@ -35,16 +42,30 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const headerStore = await headers()
+  const clientIp = getClientIp(headerStore)
+  const blocked = !isIpBlockExempt(clientIp) && (await isIpBlocked(clientIp))
+
   return (
-    <html lang="es" className={`${cinzel.variable} ${cinzelDecorative.variable} ${shareTechMono.variable} bg-[var(--bg0)]`}>
+    <html
+      lang="es"
+      className={`${cinzel.variable} ${cinzelDecorative.variable} ${shareTechMono.variable} bg-[var(--bg0)]`}
+    >
       <body className="font-sans antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {blocked ? (
+          <BlockedCutoffFlow ip={clientIp} />
+        ) : (
+          <>
+            {children}
+            <GuardianBot />
+          </>
+        )}
+        {!blocked && process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

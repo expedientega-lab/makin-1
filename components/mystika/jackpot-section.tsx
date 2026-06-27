@@ -1,366 +1,476 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { DevTestButton } from './dev-test-button'
+import { OrbMarqueeLights } from './orb-marquee-lights'
+import { JackpotReel } from './jackpot-reel'
+import { JackpotLiveFeed } from './jackpot-live-feed'
+import { JackpotLiveFeedHeader, JackpotTopCompact } from './jackpot-premium-ui'
+import { authorizeGameAction, reconcilePaidSession } from '@/lib/game-authorize-client'
+import { isLocalDevHost } from '@/lib/is-local-dev'
+import {
+  JACKPOT_FIRST_SPIN_WIN,
+  JACKPOT_SCRIPTED,
+  JACKPOT_TOTAL_SPINS,
+  persistJackpotSession,
+  readJackpotSessionOrderId,
+  readJackpotSessionPaid,
+  readJackpotSpinsCompleted,
+  readJackpotWinnings,
+  resetJackpotSession,
+  unlockJackpotSession,
+  type JackpotScriptedOutcome,
+  type JackpotSpinPhase,
+} from '@/lib/jackpot-session-data'
+
+const LOCAL_JACKPOT_ORDER_ID = 'local-dev-jackpot'
 
 interface JackpotSectionProps {
   onRequestPay: (productId: string, title: string, description: string, price: number) => void
-  /** Un giro pagado pendiente: se consume al tocar GIRAR. */
-  hasFreeSpin?: boolean
-  onConsumeFreeSpin?: () => void
   devTestEnabled?: boolean
 }
 
-const REEL_SYMBOLS = ['💎', '🔮', '⭐', '💜', '🌙', '🥠', '🎯', '🌟']
-
-/** Probabilidad real del triple luna ($1,000) en `pickResult`. */
-const JACKPOT_WIN_PERCENT = 2
-const JACKPOT_ODDS_ONE_IN = 50
-
-type ResultConfig = {
-  symbols: [string, string, string]
-  title: string
-  message: string
-  extra: string
-  color: string
-  isTop: boolean
-  isJackpot?: boolean
-}
-
-const RESULTS: ResultConfig[] = [
-  {
-    symbols: ['💎', '💎', '🔮'],
-    title: '💎 ¡DOS DIAMANTES!',
-    message: 'El portal detectó una energía extraordinaria en vos. Los diamantes casi se alinearon — una señal de que la fortuna grande está muy cerca.',
-    extra: 'El universo te dice: la próxima oportunidad es la tuya.',
-    color: '#b388ff',
-    isTop: false,
-  },
-  {
-    symbols: ['🔮', '🔮', '🔮'],
-    title: '🔮 TRIPLE ORBE',
-    message: 'Tres orbes en perfecta sincronía. El cosmos abrió un portal exclusivo para vos. Tu energía mística está en su punto más alto.',
-    extra: 'Momento ideal para tomar decisiones importantes.',
-    color: '#b388ff',
-    isTop: true,
-  },
-  {
-    symbols: ['⭐', '💜', '🌙'],
-    title: '🌙 ALINEACIÓN CÓSMICA',
-    message: 'Las estrellas, el amor y la luna se encontraron en tu giro. Una tríada de buena suerte que se activa en tu vida ahora mismo.',
-    extra: 'Lo que estás buscando está más cerca de lo que creés.',
-    color: '#ffd700',
-    isTop: false,
-  },
-  {
-    symbols: ['💜', '💜', '💜'],
-    title: '💜 TRIPLE AMOR',
-    message: 'Tres corazones púrpura. El universo confirma que estás en un ciclo de amor y abundancia emocional sin precedentes.',
-    extra: 'Las personas correctas llegan cuando menos lo esperás.',
-    color: '#ff6b9d',
-    isTop: true,
-  },
-  {
-    symbols: ['🥠', '🌟', '🔮'],
-    title: '🥠 FORTUNA DESPERTADA',
-    message: 'La galleta mística, la estrella y el orbe se combinaron. Tu mensaje del destino es claro: algo grande se aproxima en tu camino.',
-    extra: 'Confiá en el proceso. El timing es perfecto.',
-    color: '#ffd700',
-    isTop: false,
-  },
-  {
-    symbols: ['🌟', '🌟', '💎'],
-    title: '🌟 ESTRELLAS Y DIAMANTE',
-    message: 'Dos estrellas y un diamante. Una combinación que anuncia logros materiales y reconocimiento en tu entorno próximamente.',
-    extra: 'Tu esfuerzo está a punto de ser recompensado.',
-    color: '#00ff9d',
-    isTop: false,
-  },
-  {
-    symbols: ['🎯', '💜', '⭐'],
-    title: '🎯 DESTINO MARCADO',
-    message: 'El objetivo, el amor y la estrella. El universo te muestra que vas exactamente en la dirección correcta. No frenes.',
-    extra: 'Tu intuición nunca te falló. Seguí escuchándola.',
-    color: '#b388ff',
-    isTop: false,
-  },
-  {
-    symbols: ['🌙', '🌙', '🌙'],
-    title: '🌌 TRIPLE LUNA — JACKPOT',
-    message: '¡Tres lunas! La combinación más rara del portal. El jackpot de $1,000 USD fue activado. El equipo de Mystika se contactará a la brevedad para coordinar tu premio.',
-    extra: '✦ Sos parte de los elegidos del portal ✦',
-    color: '#ffd700',
-    isTop: true,
-    isJackpot: true,
-  },
-]
-
-function buildJackpotOddsMessage(spinNumber: number, wonJackpot: boolean): string {
-  if (wonJackpot) {
-    return `En el giro #${spinNumber} tenías 1 oportunidad entre ${JACKPOT_ODDS_ONE_IN} de ganar $1,000 USD (${JACKPOT_WIN_PERCENT}%). ¡El portal te eligió!`
+function outcomeForSpin(
+  phase: JackpotSpinPhase,
+  accumulatedBeforeSecond: number,
+): JackpotScriptedOutcome {
+  const base = JACKPOT_SCRIPTED[phase]
+  if (phase !== 2) return base
+  return {
+    ...base,
+    message: `Segundo giro: sin línea ganadora. Se retiró tu acumulado de $${accumulatedBeforeSecond.toFixed(2)} USD.`,
   }
-  return `En el giro #${spinNumber} tuviste 1 oportunidad entre ${JACKPOT_ODDS_ONE_IN} de ganar $1,000 USD (${JACKPOT_WIN_PERCENT}%). Esta vez no fue el jackpot mayor.`
 }
 
-function buildJackpotOddsSessionLine(sessionSpins: number): string {
-  return `En esta sesión: ${sessionSpins} giro${sessionSpins === 1 ? '' : 's'} = ${sessionSpins} chance${sessionSpins === 1 ? '' : 's'} independiente${sessionSpins === 1 ? '' : 's'} de 1 en ${JACKPOT_ODDS_ONE_IN} para el premio de $1,000.`
-}
+function JackpotAccumulationBar({
+  winnings,
+  spinsCompleted,
+  sessionActive,
+  cycleComplete,
+  spinning,
+}: {
+  winnings: number
+  spinsCompleted: number
+  sessionActive: boolean
+  cycleComplete: boolean
+  spinning: boolean
+}) {
+  const max = JACKPOT_FIRST_SPIN_WIN
+  const pct = Math.min(100, Math.max(0, (winnings / max) * 100))
+  const galletaWon = cycleComplete
+  const hasAccum = winnings > 0
+  const drained =
+    sessionActive && !galletaWon && winnings === 0 && spinsCompleted >= 2
 
-// Weighted random: jackpot (triple luna) ~2%, tops ~15%, rest ~83%
-function pickResult(): ResultConfig {
-  const r = Math.random() * 100
-  if (r < 2) return RESULTS[7]           // Triple Luna JACKPOT
-  if (r < 8) return RESULTS[1]           // Triple Orbe
-  if (r < 14) return RESULTS[3]          // Triple Amor
-  if (r < 25) return RESULTS[0]          // Dos Diamantes
-  if (r < 40) return RESULTS[5]          // Estrellas y Diamante
-  if (r < 55) return RESULTS[2]          // Alineación Cósmica
-  if (r < 72) return RESULTS[4]          // Fortuna Despertada
-  return RESULTS[6]                       // Destino Marcado
-}
+  const fillColor = galletaWon
+    ? 'linear-gradient(90deg, #ffd700, #ffb347, #ffd700)'
+    : hasAccum
+      ? 'linear-gradient(90deg, #00cc7a, #00ff9d, #7dffc4)'
+      : drained
+        ? 'linear-gradient(90deg, #ff6b6b, #ff8787)'
+        : 'linear-gradient(90deg, rgba(179,136,255,0.35), rgba(179,136,255,0.15))'
 
-// Spin animation: cycles through symbols rapidly then lands on target
-function useReelSpin(target: string, spinning: boolean, delay: number) {
-  const [display, setDisplay] = useState('❓')
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const borderColor = galletaWon
+    ? 'rgba(255,215,0,0.55)'
+    : hasAccum
+      ? 'rgba(0,255,157,0.45)'
+      : drained
+        ? 'rgba(255,107,107,0.45)'
+        : 'rgba(179,136,255,0.28)'
 
-  useEffect(() => {
-    if (!spinning) {
-      setDisplay('❓')
-      return
-    }
-    let idx = 0
-    const start = setTimeout(() => {
-      intervalRef.current = setInterval(() => {
-        setDisplay(REEL_SYMBOLS[idx % REEL_SYMBOLS.length])
-        idx++
-      }, 80)
-    }, delay)
+  const glow = galletaWon
+    ? '0 0 24px rgba(255,215,0,0.25)'
+    : hasAccum
+      ? '0 0 22px rgba(0,255,157,0.22)'
+      : 'none'
 
-    return () => {
-      clearTimeout(start)
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [spinning, delay])
+  return (
+    <div
+      className="relative z-[2] mb-3 rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 overflow-hidden"
+      style={{
+        background:
+          'linear-gradient(165deg, rgba(0,255,157,0.06) 0%, rgba(6,4,12,0.88) 45%, rgba(8,5,14,0.95) 100%)',
+        border: `1px solid ${borderColor}`,
+        boxShadow: glow ? `${glow}, inset 0 1px 0 rgba(255,255,255,0.05)` : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+      }}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2.5">
+        <span className="font-mono text-[11px] sm:text-[12px] tracking-[0.2em] text-[var(--mystik3)]">
+          BARRA DE ACUMULACIÓN
+        </span>
+        <span
+          className="font-mono text-[12px] sm:text-[14px] font-black tracking-[0.06em]"
+          style={{
+            color: galletaWon ? '#ffd700' : hasAccum ? '#00ff9d' : drained ? '#ff8787' : 'var(--txt3)',
+          }}
+        >
+          {galletaWon
+            ? '🥠 GALLETA DE LA FORTUNA'
+            : hasAccum
+              ? `$${winnings.toFixed(2)} USD`
+              : drained
+                ? '$0 · ACUMULADO RETIRADO'
+                : sessionActive
+                  ? '$0 · LISTO PARA SUMAR'
+                  : '$0 · SIN SESIÓN'}
+        </span>
+      </div>
 
-  useEffect(() => {
-    if (!spinning) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-  }, [spinning])
-
-  return { display, setDisplay }
+      <div
+        className="relative h-4 sm:h-[18px] rounded-full overflow-hidden"
+        style={{ background: 'rgba(255,255,255,0.06)' }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 rounded-full transition-[width] duration-700 ease-out"
+          style={{
+            width: galletaWon ? '100%' : `${pct}%`,
+            background: fillColor,
+            boxShadow: hasAccum || galletaWon ? '0 0 16px rgba(0,255,157,0.45)' : undefined,
+            animation: spinning ? 'glow-pulse 0.9s ease-in-out infinite' : undefined,
+          }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(0,0,0,0.12) 6px, rgba(0,0,0,0.12) 12px)',
+          }}
+        />
+        {!galletaWon && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-px h-[130%] pointer-events-none transition-[left] duration-700 ease-out"
+            style={{
+              left: `${pct}%`,
+              background: hasAccum ? 'rgba(255,255,255,0.85)' : 'transparent',
+              boxShadow: hasAccum ? '0 0 8px rgba(255,255,255,0.8)' : undefined,
+            }}
+          />
+        )}
+      </div>
+    </div>
+  )
 }
 
 export function JackpotSection({
   onRequestPay,
-  hasFreeSpin = false,
-  onConsumeFreeSpin,
   devTestEnabled,
 }: JackpotSectionProps) {
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'result'>('idle')
-  const [result, setResult] = useState<ResultConfig | null>(null)
+  const [result, setResult] = useState<JackpotScriptedOutcome | null>(null)
   const [stoppedReels, setStoppedReels] = useState([false, false, false])
-  const [spinCount, setSpinCount] = useState(0)
-  const [showOddsEvent, setShowOddsEvent] = useState(false)
+  const [spinsCompleted, setSpinsCompleted] = useState(readJackpotSpinsCompleted)
+  const [winnings, setWinnings] = useState(readJackpotWinnings)
+  const [sessionPaid, setSessionPaid] = useState(readJackpotSessionPaid)
+  const [isLocalHost, setIsLocalHost] = useState(false)
 
   const spinning = phase === 'spinning'
+  const cycleComplete = spinsCompleted >= JACKPOT_TOTAL_SPINS
+  const currentSpin = Math.min(spinsCompleted + 1, JACKPOT_TOTAL_SPINS)
+  const canSpinInSession = sessionPaid && !cycleComplete
+  const needsPay = !sessionPaid && !cycleComplete
 
-  const reel0 = useReelSpin(result?.symbols[0] ?? '❓', spinning, 0)
-  const reel1 = useReelSpin(result?.symbols[1] ?? '❓', spinning, 180)
-  const reel2 = useReelSpin(result?.symbols[2] ?? '❓', spinning, 360)
+  const isLocalPlay = useCallback(
+    () => Boolean(devTestEnabled || isLocalHost || isLocalDevHost()),
+    [devTestEnabled, isLocalHost],
+  )
 
-  const startSpin = () => {
-    const picked = pickResult()
-    setShowOddsEvent(false)
+  const syncFromStorage = useCallback(() => {
+    setSpinsCompleted(readJackpotSpinsCompleted())
+    setWinnings(readJackpotWinnings())
+    setSessionPaid(readJackpotSessionPaid())
+  }, [])
+
+  useEffect(() => {
+    syncFromStorage()
+    const onUnlock = () => syncFromStorage()
+    window.addEventListener('mystika-jackpot-unlock', onUnlock)
+    return () => window.removeEventListener('mystika-jackpot-unlock', onUnlock)
+  }, [syncFromStorage])
+
+  useEffect(() => {
+    if (!readJackpotSessionPaid() || isLocalPlay()) return
+    void reconcilePaidSession('mystika-jackpot', readJackpotSessionOrderId(), () => {
+      resetJackpotSession()
+      syncFromStorage()
+    })
+  }, [syncFromStorage, isLocalPlay])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hostname = window.location.hostname
+    setIsLocalHost(hostname === 'localhost' || hostname === '127.0.0.1')
+  }, [])
+
+  const resetFullCycle = useCallback(() => {
+    resetJackpotSession()
+    setSpinsCompleted(0)
+    setWinnings(0)
+    setSessionPaid(false)
+    setPhase('idle')
+    setResult(null)
+    setStoppedReels([false, false, false])
+  }, [])
+
+  const executeSpin = (attempt: JackpotSpinPhase) => {
+    const accumulatedBefore = attempt === 2 ? readJackpotWinnings() : winnings
+    const picked = outcomeForSpin(attempt, accumulatedBefore)
+
     setResult(picked)
     setStoppedReels([false, false, false])
     setPhase('spinning')
-    setSpinCount((n) => n + 1)
 
-    // Stop reels one by one
+    setTimeout(() => setStoppedReels([true, false, false]), 1400)
+    setTimeout(() => setStoppedReels([true, true, false]), 2000)
     setTimeout(() => {
-      reel0.setDisplay(picked.symbols[0])
-      setStoppedReels([true, false, false])
-    }, 1400)
-    setTimeout(() => {
-      reel1.setDisplay(picked.symbols[1])
-      setStoppedReels([true, true, false])
-    }, 2000)
-    setTimeout(() => {
-      reel2.setDisplay(picked.symbols[2])
       setStoppedReels([true, true, true])
       setPhase('result')
-      window.setTimeout(() => setShowOddsEvent(true), 120)
+
+      if (attempt === 1) {
+        const nextWinnings = JACKPOT_FIRST_SPIN_WIN
+        setWinnings(nextWinnings)
+        setSpinsCompleted(1)
+        persistJackpotSession(1, nextWinnings, true)
+      } else if (attempt === 2) {
+        setWinnings(0)
+        setSpinsCompleted(2)
+        persistJackpotSession(2, 0, true)
+      } else {
+        setSpinsCompleted(JACKPOT_TOTAL_SPINS)
+        setSessionPaid(false)
+        persistJackpotSession(JACKPOT_TOTAL_SPINS, 0, false)
+      }
     }, 2600)
   }
 
-  const handlePlay = () => {
-    if (hasFreeSpin) {
-      onConsumeFreeSpin?.()
-      startSpin()
+  const startSpin = async () => {
+    if (spinning || !canSpinInSession) return
+
+    if (isLocalPlay()) {
+      const attempt = Math.min(spinsCompleted + 1, JACKPOT_TOTAL_SPINS) as JackpotSpinPhase
+      executeSpin(attempt)
       return
     }
-    onRequestPay(
-      'mystika-jackpot',
-      'JACKPOT MYSTIKA — $1,000',
-      'Girá los tres carretes y descubrí si el portal te elige. Jackpot de $1,000 USD disponible.',
-      1,
-    )
+
+    const orderId = readJackpotSessionOrderId()
+    if (!orderId || !readJackpotSessionPaid()) {
+      setSessionPaid(false)
+      persistJackpotSession(spinsCompleted, winnings, false)
+      onRequestPay(
+        'mystika-jackpot',
+        'JACKPOT MYSTIKA — 3 GIROS',
+        'Por $1 USD: 1.º giro ganás $50, 2.º perdés el acumulado, 3.º galleta de la fortuna.',
+        1,
+      )
+      return
+    }
+
+    const auth = await authorizeGameAction('mystika-jackpot', orderId)
+    if (!auth.ok) {
+      setSessionPaid(false)
+      persistJackpotSession(spinsCompleted, winnings, false)
+      onRequestPay(
+        'mystika-jackpot',
+        'JACKPOT MYSTIKA — 3 GIROS',
+        'Por $1 USD: 1.º giro ganás $50, 2.º perdés el acumulado, 3.º galleta de la fortuna.',
+        1,
+      )
+      return
+    }
+
+    const attempt = (auth.spin ?? spinsCompleted + 1) as JackpotSpinPhase
+    executeSpin(attempt)
   }
 
-  const handleReset = () => {
-    setPhase('idle')
-    setResult(null)
-    setShowOddsEvent(false)
-    setStoppedReels([false, false, false])
-    reel0.setDisplay('❓')
-    reel1.setDisplay('❓')
-    reel2.setDisplay('❓')
+  const handlePlay = () => {
+    if (spinning) return
+
+    if (cycleComplete) {
+      resetFullCycle()
+      onRequestPay(
+        'mystika-jackpot',
+        'JACKPOT MYSTIKA — 3 GIROS',
+        'Por $1 USD: 1.º giro ganás $50, 2.º perdés el acumulado, 3.º galleta de la fortuna.',
+        1,
+      )
+      return
+    }
+
+    if (needsPay) {
+      onRequestPay(
+        'mystika-jackpot',
+        'JACKPOT MYSTIKA — 3 GIROS',
+        'Por $1 USD: 1.º giro ganás $50, 2.º perdés el acumulado, 3.º galleta de la fortuna.',
+        1,
+      )
+      return
+    }
+
+    startSpin()
   }
 
-  const reels = [
-    { ...reel0, stopped: stoppedReels[0] },
-    { ...reel1, stopped: stoppedReels[1] },
-    { ...reel2, stopped: stoppedReels[2] },
-  ]
+  const handleContinue = () => {
+    if (spinning || cycleComplete || !sessionPaid) return
+    void startSpin()
+  }
+
+  const handleDevUnlock = () => {
+    if (!isLocalPlay()) return
+    if (cycleComplete) return
+    unlockJackpotSession(LOCAL_JACKPOT_ORDER_ID)
+    syncFromStorage()
+  }
+
+  const handleDevReset = () => {
+    if (!isLocalPlay()) return
+    resetFullCycle()
+  }
+
+  const buttonLabel = (() => {
+    if (spinning) return 'GIRANDO...'
+    if (cycleComplete) return 'JUGAR DE NUEVO — $1'
+    if (needsPay) return 'GIRAR — $1 (3 GIROS)'
+    if (currentSpin === 1) return 'GIRAR — 1ER GIRO'
+    if (currentSpin === 2) return 'GIRAR — 2DO GIRO'
+    return 'GIRAR — 3ER GIRO'
+  })()
+
+  const reelSymbols: [string, string, string] = result?.symbols ?? ['❓', '❓', '❓']
+
+  const showAccumulated = sessionPaid && !cycleComplete && winnings > 0
 
   return (
     <div className="animate-[fadeup_0.4s_ease]">
 
-      {/* Header */}
-      <div className="text-center py-1.5 pb-5">
-        <div className="font-mono text-[9px] tracking-[5px] text-[var(--mystik3)] flex items-center justify-center gap-3.5 mb-3">
-          <span className="flex-1 max-w-[40px] h-px bg-[var(--border)]" />
-          PORTAL DEL JACKPOT
-          <span className="flex-1 max-w-[40px] h-px bg-[var(--border)]" />
-        </div>
-        <h2
-          className="font-display font-black leading-[0.95] tracking-[2px] mb-4"
-          style={{ fontSize: 'clamp(36px,8vw,58px)' }}
-        >
-          Ganate{' '}
-          <span
-            className="text-[#00ff9d]"
-            style={{ textShadow: '0 0 35px rgba(0,255,157,.75)' }}
-          >
-            $1,000 USD
-          </span>
-        </h2>
-        <p className="text-[15px] text-[var(--txt2)] max-w-[420px] mx-auto leading-[1.8] font-light">
-          Girá los tres carretes del portal. Alineá los símbolos y el jackpot es tuyo.
-        </p>
+      <JackpotTopCompact
+        amount={showAccumulated ? `$${winnings}` : '$1,000'}
+        topLabel={showAccumulated ? 'ACUMULADO EN MESA' : 'JACKPOT DISPONIBLE'}
+        bottomLabel={showAccumulated ? 'USD · EN TU MESA' : 'USD · PREMIO MAYOR'}
+        icon={showAccumulated ? '💜' : '💵'}
+        spinsCompleted={spinsCompleted}
+        currentSpin={currentSpin}
+        cycleComplete={cycleComplete}
+        sessionPaid={sessionPaid}
+      />
+
+      <div className="mx-auto mb-3 w-full max-w-[560px]">
+        <JackpotLiveFeedHeader />
+        <JackpotLiveFeed />
       </div>
 
-      {/* Jackpot prize display */}
-      <div
-        className="flex items-center justify-between px-7 py-5 rounded-2xl mb-8 mx-auto max-w-[480px]"
-        style={{
-          background: 'linear-gradient(135deg, rgba(0,255,157,0.18) 0%, rgba(10,6,18,0.95) 100%)',
-          border: '2px solid rgba(0,255,157,0.5)',
-          boxShadow: '0 0 40px rgba(0,255,157,0.25), inset 0 0 30px rgba(0,255,157,0.05)',
-        }}
+      <OrbMarqueeLights
+        active
+        premium
+        hideBulbs
+        frantic={spinning || phase === 'result'}
+        className="mb-5 mx-auto w-full max-w-[560px]"
       >
-        <div>
-          <div className="font-mono text-[11px] tracking-[4px] text-[var(--green)] mb-1.5">JACKPOT DISPONIBLE</div>
-          <div
-            className="font-display font-black text-[48px] leading-none"
-            style={{ color: '#00ff9d', textShadow: '0 0 30px rgba(0,255,157,0.8), 0 0 60px rgba(0,255,157,0.4)' }}
-          >
-            $1,000
-          </div>
-          <div className="font-mono text-[11px] text-[var(--txt3)] tracking-[3px]">USD · PREMIO MAYOR</div>
-        </div>
-        <div className="text-right">
-          <div
-            className="text-7xl"
-            style={{ filter: 'drop-shadow(0 0 20px rgba(0,255,157,0.8))' }}
-          >
-            💵
-          </div>
-        </div>
-      </div>
-
-      {/* Slot Machine */}
-      <div
-        className="rounded-2xl p-8 mb-8 mx-auto max-w-[480px]"
-        style={{
-          background: 'linear-gradient(160deg, #120a22 0%, #0a0612 100%)',
-          border: '2px solid rgba(179,136,255,0.35)',
-          boxShadow: '0 0 60px rgba(179,136,255,0.15), inset 0 0 40px rgba(179,136,255,0.05)',
-        }}
-      >
-        {/* Reels */}
-        <div className="flex gap-4 justify-center mb-6">
-          {reels.map((reel, i) => (
-            <div
-              key={i}
-              className="flex-1 max-w-[120px] aspect-square rounded-2xl flex items-center justify-center relative overflow-hidden"
-              style={{
-                background: reel.stopped && phase === 'result'
-                  ? 'rgba(179,136,255,0.15)'
-                  : 'rgba(255,255,255,0.05)',
-                border: reel.stopped && phase === 'result'
-                  ? '3px solid rgba(179,136,255,0.55)'
-                  : '2px solid rgba(255,255,255,0.1)',
-                boxShadow: reel.stopped && phase === 'result'
-                  ? '0 0 35px rgba(179,136,255,0.35), inset 0 0 20px rgba(179,136,255,0.1)'
-                  : '0 0 15px rgba(179,136,255,0.08)',
-                transition: 'all 0.3s ease',
-              }}
-            >
-              {/* Blur when spinning */}
+      <div className="relative p-3 sm:p-4">
+        <div className="relative z-[2] mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="relative">
               <span
-                className="text-6xl select-none"
-                style={{
-                  filter: spinning && !reel.stopped ? 'blur(2px)' : 'none',
-                  transition: reel.stopped ? 'filter 0.2s ease' : 'none',
-                  animation: spinning && !reel.stopped ? 'pulse 0.3s ease-in-out infinite' : undefined,
-                }}
-              >
-                {reel.display}
-              </span>
-              {/* Stop flash */}
-              {reel.stopped && phase === 'spinning' && (
-                <div
-                  className="absolute inset-0 rounded-2xl"
-                  style={{ animation: 'ping 0.5s ease-out forwards', background: 'rgba(179,136,255,0.4)' }}
-                />
-              )}
+                className="block w-2 h-2 rounded-full"
+                style={{ background: '#00ff9d', boxShadow: '0 0 10px #00ff9d' }}
+              />
+              <span
+                className="absolute inset-[-3px] rounded-full border border-[#00ff9d]/60"
+                style={{ animation: 'orb-feed-live-ring 1.6s ease-out infinite' }}
+              />
             </div>
-          ))}
+            <span className="font-mono text-[9px] tracking-[3px] text-[var(--green)]">
+              MESA JACKPOT
+            </span>
+          </div>
+          <span className="font-mono text-[8px] tracking-[2px] text-[var(--gold3)] opacity-80">
+            {sessionPaid && !cycleComplete
+              ? `GIRO ${currentSpin}/${JACKPOT_TOTAL_SPINS}`
+              : 'PREMIUM'}
+          </span>
         </div>
 
-        {/* Payline indicator */}
-        <div className="flex items-center gap-3 mb-5">
+        <JackpotAccumulationBar
+          winnings={winnings}
+          spinsCompleted={spinsCompleted}
+          sessionActive={sessionPaid || cycleComplete}
+          cycleComplete={cycleComplete}
+          spinning={spinning}
+        />
+
+        <div className={`relative z-[2] ${phase === 'result' ? 'mb-3' : 'mb-4'}`}>
+          <div className="flex gap-3 sm:gap-4 justify-center relative">
+            {spinning && (
+              <div
+                className="absolute left-2 right-2 top-1/2 -translate-y-1/2 h-[3px] z-[1] pointer-events-none rounded-full"
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.15) 8%, rgba(255,215,0,0.9) 50%, rgba(255,215,0,0.15) 92%, transparent 100%)',
+                  boxShadow: '0 0 20px rgba(255,215,0,0.55)',
+                  animation: 'glow-pulse 0.8s ease-in-out infinite',
+                }}
+                aria-hidden
+              />
+            )}
+            {[0, 1, 2].map((i) => (
+              <JackpotReel
+                key={i}
+                reelIndex={i}
+                finalSymbol={reelSymbols[i]}
+                spinning={spinning || phase === 'result'}
+                stopped={stoppedReels[i] || phase === 'result'}
+              />
+            ))}
+          </div>
+          {spinning && (
+            <div className="flex justify-center gap-3 mt-4">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="font-mono text-[9px] tracking-[2px] transition-all duration-300"
+                  style={{
+                    color: stoppedReels[i] ? '#ffd700' : 'var(--mystik3)',
+                    opacity: stoppedReels[i] ? 1 : 0.55,
+                  }}
+                >
+                  {stoppedReels[i] ? '●' : '○'} CARRETE {i + 1}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {phase !== 'result' && (
+        <div className="relative z-[2] flex items-center gap-3 mb-3">
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to right, transparent, rgba(255,215,0,0.5))' }} />
           <span className="font-mono text-[12px] sm:text-[13px] tracking-[4px] text-[var(--gold3)]">
             LÍNEA DE PAGO
           </span>
           <div className="flex-1 h-px" style={{ background: 'linear-gradient(to left, transparent, rgba(255,215,0,0.5))' }} />
         </div>
+        )}
 
-        {/* Symbol guide */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {phase !== 'result' && (
+        <div className="relative z-[2] grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
           {[
-            { sym: '🌙🌙🌙', label: '$1,000', color: '#ffd700' },
-            { sym: '🔮🔮🔮', label: 'PREMIO', color: '#b388ff' },
-            { sym: '💜💜💜', label: 'PREMIO', color: '#ff6b9d' },
-            { sym: '💎💎?', label: 'BONUS', color: '#00ff9d' },
+            { sym: '🌙🌙🌙', label: '1 mil dólares', color: '#ffd700' },
+            { sym: '🔮🔮🔮', label: '100 dólares', color: '#b388ff' },
+            { sym: '💜💜💜', label: '50 dólares', color: '#ff6b9d' },
+            { sym: '💎💎🥠', label: 'Galleta de la fortuna', color: '#00ff9d' },
           ].map((g, i) => (
             <div
               key={i}
-              className="text-center py-3.5 px-2 sm:py-4 rounded-xl min-h-[88px] flex flex-col items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
+              className="text-center py-2.5 px-2 sm:py-3 rounded-lg min-h-[72px] flex flex-col items-center justify-center"
+              style={{
+                background: `linear-gradient(160deg, ${g.color}14 0%, rgba(8,5,14,0.92) 100%)`,
+                border: `1px solid ${g.color}44`,
+                boxShadow: `0 0 16px ${g.color}18, inset 0 1px 0 rgba(255,255,255,0.05)`,
+                backdropFilter: 'blur(6px)',
+              }}
             >
               <div className="text-[20px] sm:text-[22px] mb-2 leading-none tracking-tight">
                 {g.sym}
               </div>
               <div
-                className="font-mono text-[11px] sm:text-[12px] font-black tracking-[1px]"
+                className="font-mono text-[10px] sm:text-[11px] font-black tracking-[0.5px] leading-snug px-0.5"
                 style={{ color: g.color }}
               >
                 {g.label}
@@ -368,174 +478,186 @@ export function JackpotSection({
             </div>
           ))}
         </div>
+        )}
 
-        {/* CTA / Spinning state */}
         {phase === 'idle' && (
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handlePlay}
-              className="flex-1 py-5 rounded-2xl font-mono text-[16px] tracking-[4px] font-black transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-4"
-              style={{
-                background: hasFreeSpin
-                  ? 'linear-gradient(135deg, #b388ff, #d4b8ff)'
-                  : 'linear-gradient(135deg, #00cc7a 0%, #00ff9d 100%)',
-                color: '#0a0612',
-                boxShadow: hasFreeSpin
-                  ? '0 8px 40px rgba(179,136,255,0.45)'
-                  : '0 8px 40px rgba(0,255,157,0.5), 0 0 20px rgba(0,255,157,0.3)',
-              }}
-            >
-              <span className="text-3xl">🎰</span>
-              <span>{hasFreeSpin ? 'GIRAR (pago listo)' : 'GIRAR — $1'}</span>
-            </button>
-            {devTestEnabled && (
-              <DevTestButton onClick={startSpin} />
+          <div className="relative z-[2] flex flex-col gap-3">
+            {sessionPaid && !cycleComplete && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span
+                  className="inline-flex items-center gap-2 rounded-full border px-4 py-2 font-mono font-bold tracking-[1px] text-[12px]"
+                  style={{
+                    borderColor: 'rgba(0,255,157,0.35)',
+                    background: 'rgba(0,255,157,0.1)',
+                    color: '#00ff9d',
+                  }}
+                >
+                  Giro {currentSpin} / {JACKPOT_TOTAL_SPINS}
+                </span>
+                {winnings > 0 && (
+                  <span
+                    className="inline-flex items-center rounded-full border px-3 py-1.5 font-mono text-[11px] font-bold"
+                    style={{
+                      borderColor: 'rgba(255,107,157,0.35)',
+                      background: 'rgba(255,107,157,0.08)',
+                      color: '#ff6b9d',
+                    }}
+                  >
+                    ${winnings.toFixed(2)} acumulado
+                  </span>
+                )}
+              </div>
             )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={handlePlay}
+                className="flex-1 py-5 rounded-2xl font-mono text-[16px] tracking-[4px] font-black transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-4"
+                style={{
+                  background: canSpinInSession
+                    ? 'linear-gradient(135deg, #b388ff, #d4b8ff)'
+                    : 'linear-gradient(135deg, #00cc7a 0%, #00ff9d 100%)',
+                  color: '#0a0612',
+                  boxShadow: canSpinInSession
+                    ? '0 8px 40px rgba(179,136,255,0.45)'
+                    : '0 8px 40px rgba(0,255,157,0.5), 0 0 20px rgba(0,255,157,0.3)',
+                  animation: 'glow-pulse 2.2s ease-in-out infinite',
+                }}
+              >
+                <span className="text-3xl">🎰</span>
+                <span>{buttonLabel}</span>
+              </button>
+              {(devTestEnabled || isLocalHost) && (
+                <DevTestButton
+                  onClick={cycleComplete ? handleDevReset : handleDevUnlock}
+                  label={cycleComplete ? 'REINICIAR' : isLocalHost ? 'PROBAR (local)' : 'PROBAR PAGO LOCAL'}
+                />
+              )}
+            </div>
           </div>
         )}
 
         {phase === 'spinning' && (
-          <div className="w-full py-5 rounded-2xl flex items-center justify-center gap-4"
-            style={{ background: 'rgba(179,136,255,0.1)', border: '2px solid rgba(179,136,255,0.3)' }}
-          >
-            <div className="w-6 h-6 border-3 border-[var(--mystik)] border-t-transparent rounded-full animate-spin" />
-            <span className="font-mono text-[14px] tracking-[3px] text-[var(--mystik)]">GIRANDO EL PORTAL...</span>
-          </div>
-        )}
-
-        {phase === 'result' && (
-          <button
-            onClick={handleReset}
-            className="w-full py-4 rounded-2xl font-mono text-[14px] tracking-[3px] transition-all hover:-translate-y-0.5"
+          <div
+            className="relative z-[2] w-full py-4 sm:py-5 rounded-2xl overflow-hidden backdrop-blur-sm"
             style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '2px solid rgba(255,255,255,0.15)',
-              color: 'var(--txt2)',
+              background: 'rgba(8, 5, 14, 0.55)',
+              border: '1px solid rgba(255, 215, 0, 0.35)',
+              boxShadow: '0 0 24px rgba(255, 215, 0, 0.15)',
             }}
           >
-            ↺ GIRAR DE NUEVO
-          </button>
+            <div
+              className="absolute inset-x-0 top-0 h-px pointer-events-none"
+              style={{
+                background:
+                  'linear-gradient(90deg, transparent, rgba(255,215,0,0.8), transparent)',
+                animation: 'ctamove 1.8s linear infinite',
+              }}
+            />
+            <div className="flex flex-col items-center gap-2 px-4">
+              <div className="flex items-center gap-2">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="text-lg leading-none transition-opacity duration-300"
+                    style={{
+                      opacity: stoppedReels[i] ? 1 : 0.35,
+                      filter: stoppedReels[i]
+                        ? 'drop-shadow(0 0 8px rgba(255,215,0,0.8))'
+                        : undefined,
+                    }}
+                  >
+                    🎰
+                  </span>
+                ))}
+              </div>
+              <span className="font-mono text-[13px] sm:text-[14px] tracking-[3px] text-[var(--gold3)]">
+                {stoppedReels.filter(Boolean).length === 0 &&
+                  `GIRO ${currentSpin} · ACTIVANDO CARRETES...`}
+                {stoppedReels.filter(Boolean).length === 1 &&
+                  'CARRETE 1 FIJO · SIGUIENTE...'}
+                {stoppedReels.filter(Boolean).length === 2 &&
+                  'CARRETE 2 FIJO · ÚLTIMO CARRETE...'}
+                {stoppedReels.filter(Boolean).length === 3 &&
+                  'RESULTADO LISTO'}
+              </span>
+            </div>
+          </div>
         )}
-      </div>
 
-      {/* Result card */}
-      {phase === 'result' && result && (
-        <div
-          className="animate-[fadeup_0.5s_ease] rounded-2xl p-7 mx-auto max-w-[480px] relative overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, ${result.color}20 0%, rgba(10,6,18,0.96) 100%)`,
-            border: `2px solid ${result.color}60`,
-            boxShadow: `0 0 50px ${result.color}30, inset 0 0 40px ${result.color}08`,
-          }}
-        >
-          {/* Top glow */}
+        {phase === 'result' && result && (
           <div
-            className="absolute top-0 left-0 right-0 h-[3px]"
-            style={{ background: `linear-gradient(90deg, transparent, ${result.color}, transparent)` }}
-          />
+            className="relative z-[2] animate-[fadeup_0.5s_ease] rounded-2xl overflow-hidden"
+            style={{
+              background: `linear-gradient(160deg, ${result.color}22 0%, rgba(8,5,14,0.94) 42%, rgba(10,6,18,0.98) 100%)`,
+              border: `2px solid ${result.color}55`,
+              boxShadow: `0 0 40px ${result.color}28, inset 0 0 36px ${result.color}08`,
+            }}
+          >
+            <div
+              className="absolute top-0 left-0 right-0 h-[3px]"
+              style={{ background: `linear-gradient(90deg, transparent, ${result.color}, transparent)` }}
+              aria-hidden
+            />
 
-          {/* Symbols recap */}
-          <div className="flex justify-center gap-3 mb-4">
-            {result.symbols.map((s, i) => (
+            <div className="p-4 sm:p-5">
               <div
-                key={i}
-                className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+                className="font-display font-black text-[20px] sm:text-[24px] tracking-[0.5px] text-center mb-3 leading-tight"
+                style={{ color: result.color, textShadow: `0 0 22px ${result.color}70` }}
+              >
+                {result.title}
+              </div>
+
+              <p className="text-[14px] sm:text-[15px] text-[var(--txt)] leading-[1.75] text-center mb-3 px-1">
+                {result.message}
+              </p>
+
+              <div
+                className="text-center py-2.5 px-3 rounded-xl mb-3"
+                style={{ background: `${result.color}12`, border: `1px solid ${result.color}35` }}
+              >
+                <p className="text-[13px] sm:text-[14px] font-medium italic leading-snug" style={{ color: result.color }}>
+                  {result.extra}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  cycleComplete
+                    ? () => {
+                        setPhase('idle')
+                        setResult(null)
+                        setStoppedReels([false, false, false])
+                        handlePlay()
+                      }
+                    : handleContinue
+                }
+                className="w-full py-3.5 sm:py-4 rounded-2xl font-mono text-[13px] sm:text-[14px] tracking-[3px] transition-all hover:-translate-y-0.5 active:scale-[0.98]"
                 style={{
-                  background: `${result.color}18`,
-                  border: `2px solid ${result.color}50`,
-                  boxShadow: `0 0 20px ${result.color}25`,
+                  background: cycleComplete
+                    ? 'linear-gradient(135deg, #00cc7a 0%, #00ff9d 100%)'
+                    : 'rgba(255,255,255,0.06)',
+                  border: cycleComplete
+                    ? 'none'
+                    : '2px solid rgba(255,255,255,0.18)',
+                  color: cycleComplete ? '#0a0612' : 'var(--txt2)',
+                  boxShadow: cycleComplete
+                    ? '0 4px 20px rgba(0,255,157,0.35)'
+                    : undefined,
                 }}
               >
-                {s}
-              </div>
-            ))}
-          </div>
-
-          {/* Title */}
-          <div
-            className="font-display font-black text-[26px] tracking-[1px] text-center mb-3"
-            style={{ color: result.color, textShadow: `0 0 25px ${result.color}70` }}
-          >
-            {result.title}
-          </div>
-
-          {/* Message */}
-          <p className="text-[16px] text-[var(--txt)] leading-[1.8] text-center mb-4">
-            {result.message}
-          </p>
-
-          {/* Extra */}
-          <div
-            className="text-center py-3 px-4 rounded-xl mb-4"
-            style={{ background: `${result.color}12`, border: `1px solid ${result.color}30` }}
-          >
-            <p className="text-[14px] font-medium italic" style={{ color: result.color }}>
-              {result.extra}
-            </p>
-          </div>
-
-          {/* Odds event — probabilidad del jackpot $1,000 en este giro */}
-          {showOddsEvent && (
-            <div
-              className="animate-[fadeup_0.45s_ease] rounded-xl p-4 text-left"
-              style={{
-                background: result.isJackpot
-                  ? 'rgba(255,215,0,0.12)'
-                  : 'rgba(0,255,157,0.08)',
-                border: result.isJackpot
-                  ? '2px solid rgba(255,215,0,0.45)'
-                  : '2px solid rgba(0,255,157,0.28)',
-                boxShadow: result.isJackpot
-                  ? '0 0 28px rgba(255,215,0,0.2)'
-                  : '0 0 20px rgba(0,255,157,0.12)',
-              }}
-            >
-              <div className="font-mono text-[11px] sm:text-[12px] tracking-[3px] text-[var(--gold3)] mb-2.5">
-                📊 REGISTRO DE PROBABILIDAD — JACKPOT $1,000
-              </div>
-              <p className="text-[15px] sm:text-[16px] text-[var(--txt)] leading-[1.75] mb-2.5">
-                {buildJackpotOddsMessage(spinCount, Boolean(result.isJackpot))}
-              </p>
-              <p className="text-[13px] sm:text-[14px] text-[var(--txt3)] font-mono leading-relaxed">
-                {buildJackpotOddsSessionLine(spinCount)}
-              </p>
-              <div className="mt-3.5 flex items-center gap-2.5">
-                <div
-                  className="h-2.5 flex-1 rounded-full overflow-hidden"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{
-                      width: `${JACKPOT_WIN_PERCENT}%`,
-                      background: result.isJackpot ? '#ffd700' : '#00ff9d',
-                      boxShadow: result.isJackpot
-                        ? '0 0 12px rgba(255,215,0,0.6)'
-                        : '0 0 10px rgba(0,255,157,0.5)',
-                    }}
-                  />
-                </div>
-                <span
-                  className="font-mono text-[12px] sm:text-[13px] font-black shrink-0"
-                  style={{ color: result.isJackpot ? '#ffd700' : '#00ff9d' }}
-                >
-                  {JACKPOT_WIN_PERCENT}%
-                </span>
-              </div>
+                {cycleComplete
+                  ? 'JUGAR DE NUEVO — $1'
+                  : currentSpin <= 2
+                    ? 'GIRAR — SIGUIENTE GIRO'
+                    : 'CONTINUAR'}
+              </button>
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Odds disclaimer */}
-      <p className="text-center text-[13px] sm:text-[14px] text-[var(--txt2)] mt-8 max-w-[520px] mx-auto leading-[1.85] px-2">
-        <span className="text-[var(--gold3)]">✦</span> Cada giro:{' '}
-        <span className="font-mono font-black text-[#00ff9d]">
-          1 en {JACKPOT_ODDS_ONE_IN} ({JACKPOT_WIN_PERCENT}%)
-        </span>{' '}
-        de alinear <span className="text-[18px] leading-none align-middle">🌙🌙🌙</span> y ganar{' '}
-        <span className="font-black text-[#ffd700]">$1,000 USD</span>. Probabilidades independientes por giro.
-      </p>
+          </div>
+        )}
+      </div>
+      </OrbMarqueeLights>
     </div>
   )
 }

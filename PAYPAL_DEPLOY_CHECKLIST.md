@@ -36,7 +36,27 @@ Después de cambiar cualquier variable PayPal:
 - reiniciar servidor o redeploy
 - volver a correr `GET /api/paypal/health`
 
-## 5) Hostinger / VPS (Node)
+## 5) Webhook PayPal (obligatorio en producción)
+
+Configurá un webhook en [developer.paypal.com](https://developer.paypal.com) apuntando a:
+
+- `https://TU-DOMINIO/api/paypal/webhook`
+
+Eventos recomendados:
+
+- `PAYMENT.CAPTURE.COMPLETED`
+- `CHECKOUT.ORDER.COMPLETED`
+- `PAYMENT.CAPTURE.DENIED`
+- `PAYMENT.CAPTURE.DECLINED`
+- `PAYMENT.CAPTURE.REFUNDED`
+
+Copiá el **Webhook ID** y agregalo como variable:
+
+- `PAYPAL_WEBHOOK_ID`
+
+Así el servidor confirma cada pago aunque el usuario cierre el navegador antes del capture, y nadie puede jugar sin un pago verificado.
+
+## 6) Hostinger / VPS (Node)
 
 - Cargar variables en `.env` del servidor (no solo local).
 - Ejecutar app con proceso persistente (PM2/systemd).

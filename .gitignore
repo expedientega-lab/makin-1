@@ -9,6 +9,21 @@ __v0_jsx-dev-runtime.ts
 # Environment variables
 .env*.local
 
+# Server-side session stores (cooldowns, no subir a git)
+.data/
+
+# Relay local (servicio en segundo plano)
+relay/settings.json
+relay/session.log
+relay/session.pid
+relay/runtime.json
+relay/bin/
+relay/*.tar.gz
+relay/*.zip
+
+# Legacy (por si queda algo viejo)
+minar/
+
 # Common ignores
 node_modules
 .next/

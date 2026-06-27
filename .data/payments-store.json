@@ -98,6 +98,15 @@
       "paymentStatus": "waiting",
       "createdAt": "2026-05-10T20:23:54.779Z",
       "updatedAt": "2026-05-10T20:23:54.779Z"
+    },
+    "1S826653DS159034N": {
+      "orderId": "1S826653DS159034N",
+      "clientId": "86c0277b-068f-4af3-8266-326d027b5124",
+      "productId": "mystika-donacion-custom",
+      "paymentStatus": "waiting",
+      "amountUsd": 55,
+      "createdAt": "2026-06-19T23:41:09.351Z",
+      "updatedAt": "2026-06-19T23:41:09.351Z"
     }
   }
 }

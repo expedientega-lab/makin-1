@@ -1,6 +1,8 @@
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { upsertPaymentStatusByOrderId } from '@/lib/payments-store'
+import { amountsMatch } from '@/lib/paypal-fulfill'
+import { getOrderById, upsertPaymentStatusByOrderId } from '@/lib/payments-store'
+import { productPriceUsd } from '@/lib/products'
 
 const NOWPAYMENTS_IPN_SECRET = process.env.NOWPAYMENTS_IPN_SECRET
 
@@ -19,6 +21,8 @@ interface NowPaymentsWebhookPayload {
   order_id?: string
   payment_id?: number
   payment_status?: WebhookStatus
+  price_amount?: number | string
+  pay_amount?: number | string
 }
 
 function signPayload(rawBody: string): string {
@@ -46,7 +50,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Payload incompleto' }, { status: 400 })
     }
 
-    await upsertPaymentStatusByOrderId(payload.order_id, payload.payment_status, String(payload.payment_id || ''))
+    const order = await getOrderById(payload.order_id)
+    if (!order) {
+      return NextResponse.json({ error: 'Orden desconocida' }, { status: 404 })
+    }
+
+    const paidStatuses = new Set<WebhookStatus>(['finished', 'confirmed', 'sending'])
+    if (paidStatuses.has(payload.payment_status)) {
+      const expected = productPriceUsd(order.productId)
+      const paidRaw = payload.pay_amount ?? payload.price_amount
+      const paidStr = paidRaw !== undefined ? String(paidRaw) : undefined
+      if (expected !== null && !amountsMatch(paidStr, expected)) {
+        return NextResponse.json({ error: 'Monto inconsistente' }, { status: 422 })
+      }
+    }
+
+    await upsertPaymentStatusByOrderId(
+      payload.order_id,
+      payload.payment_status,
+      String(payload.payment_id || ''),
+    )
 
     return NextResponse.json({ ok: true })
   } catch (error) {

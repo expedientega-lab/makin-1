@@ -10,11 +10,11 @@ export interface Prize {
 }
 
 export const displayPrizes: Prize[] = [
-  { ico: '💵', nm: '$1,000 USD', p: 5, v: '$1,000', col: '#00ff9d', glow: 'rgba(0,255,157,0.5)', jk: true },
-  { ico: '🤖', nm: 'Bot Trading', p: 20, v: '$70', col: '#00e5ff', glow: 'rgba(0,229,255,0.5)' },
-  { ico: '📦', nm: 'Caja Misteriosa', p: 15, v: '$150', col: '#ff6b9d', glow: 'rgba(255,107,157,0.5)' },
-  { ico: '₿', nm: 'Bitcoin', p: 10, v: '0.001 BTC', col: '#f7931a', glow: 'rgba(247,147,26,0.5)' },
-  { ico: '🥠', nm: 'Galleta Mistica', p: 50, v: 'GARANTIZADA', col: '#ffd700', glow: 'rgba(255,215,0,0.6)', isReal: true },
+  { ico: '💵', nm: '$1,000 USD', p: 42, v: '$1,000', col: '#00ff9d', glow: 'rgba(0,255,157,0.5)', jk: true },
+  { ico: '💵', nm: '$100 USD', p: 58, v: '$100', col: '#00e5ff', glow: 'rgba(0,229,255,0.5)' },
+  { ico: '📦', nm: 'Caja Misteriosa', p: 48, v: '$150', col: '#ff6b9d', glow: 'rgba(255,107,157,0.5)' },
+  { ico: '₿', nm: 'Bitcoin', p: 36, v: '0.001 BTC', col: '#f7931a', glow: 'rgba(247,147,26,0.5)' },
+  { ico: '🥠', nm: 'Galleta Mistica', p: 92, v: 'GARANTIZADA', col: '#ffd700', glow: 'rgba(255,215,0,0.6)', isReal: true },
 ]
 
 export const tickerItems = [
@@ -28,7 +28,7 @@ export const tickerItems = [
   { type: 'brand', text: '+18.700 FORTUNAS REVELADAS' },
   { type: 'win', text: '✨ @maria_g descubrio Bitcoin' },
   { type: 'green', text: '🌙 ALINEACION PERFECTA' },
-  { type: 'hot', text: '🔥 BOT TRADING DISPONIBLE' },
+  { type: 'hot', text: '🔥 $100 USD EN EL ORBE' },
 ]
 
 export const fortunes = {

@@ -186,7 +186,7 @@ export function ClawzonePage() {
       <PayModal
         isOpen={payModalOpen}
         onClose={() => setPayModalOpen(false)}
-        onPaymentSuccess={() => {
+        onPaymentSuccess={({ orderId }) => {
           setHasPaid(true)
           setPayModalOpen(false)
         }}

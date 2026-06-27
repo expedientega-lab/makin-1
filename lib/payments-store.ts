@@ -14,11 +14,12 @@ type StoredPaymentStatus =
   | 'refunded'
   | 'partially_paid'
 
-interface StoredOrder {
+export interface StoredOrder {
   orderId: string
   clientId: string
   productId: string
   paymentStatus: StoredPaymentStatus
+  amountUsd?: number
   invoiceId?: string
   paymentId?: string
   createdAt: string
@@ -35,6 +36,9 @@ const STORE_PATH = path.join(STORE_DIR, 'payments-store.json')
 const DEFAULT_STORE: PaymentsStore = {
   orders: {},
 }
+
+/** Caché en memoria: evita pérdida entre create/capture en la misma instancia. */
+const memoryOrders = new Map<string, StoredOrder>()
 
 async function ensureStoreExists() {
   await fs.mkdir(STORE_DIR, { recursive: true })
@@ -56,26 +60,41 @@ async function writeStore(store: PaymentsStore): Promise<void> {
   await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), 'utf-8')
 }
 
-export async function createPendingOrder(orderId: string, clientId: string, productId: string): Promise<void> {
-  const store = await readStore()
+function rememberOrder(order: StoredOrder) {
+  memoryOrders.set(order.orderId, order)
+}
+
+export async function createPendingOrder(
+  orderId: string,
+  clientId: string,
+  productId: string,
+  amountUsd?: number,
+): Promise<void> {
   const now = new Date().toISOString()
-  store.orders[orderId] = {
+  const order: StoredOrder = {
     orderId,
     clientId,
     productId,
     paymentStatus: 'waiting',
+    amountUsd,
     createdAt: now,
     updatedAt: now,
   }
+  rememberOrder(order)
+
+  const store = await readStore()
+  store.orders[orderId] = order
   await writeStore(store)
 }
 
 export async function attachInvoiceToOrder(orderId: string, invoiceId: string): Promise<void> {
   const store = await readStore()
-  const order = store.orders[orderId]
+  const order = store.orders[orderId] ?? memoryOrders.get(orderId)
   if (!order) return
   order.invoiceId = invoiceId
   order.updatedAt = new Date().toISOString()
+  rememberOrder(order)
+  store.orders[orderId] = order
   await writeStore(store)
 }
 
@@ -85,22 +104,59 @@ export async function upsertPaymentStatusByOrderId(
   paymentId?: string,
 ): Promise<void> {
   const store = await readStore()
-  const order = store.orders[orderId]
+  const order = store.orders[orderId] ?? memoryOrders.get(orderId)
   if (!order) return
   order.paymentStatus = paymentStatus
   order.paymentId = paymentId || order.paymentId
   order.updatedAt = new Date().toISOString()
+  rememberOrder(order)
+  store.orders[orderId] = order
   await writeStore(store)
 }
 
 export async function getOrderById(orderId: string): Promise<StoredOrder | null> {
+  const cached = memoryOrders.get(orderId)
+  if (cached) return cached
+
   const store = await readStore()
-  return store.orders[orderId] ?? null
+  const order = store.orders[orderId] ?? null
+  if (order) rememberOrder(order)
+  return order
+}
+
+/** Registra una orden ya validada vía PayPal (respaldo si el archivo no persistió). */
+export async function ensureOrderRecord(
+  orderId: string,
+  clientId: string,
+  productId: string,
+): Promise<StoredOrder> {
+  const existing = await getOrderById(orderId)
+  if (existing) return existing
+
+  const now = new Date().toISOString()
+  const order: StoredOrder = {
+    orderId,
+    clientId,
+    productId,
+    paymentStatus: 'waiting',
+    createdAt: now,
+    updatedAt: now,
+  }
+  rememberOrder(order)
+
+  const store = await readStore()
+  store.orders[orderId] = order
+  await writeStore(store)
+  return order
 }
 
 export async function hasClientPaidForProducts(clientId: string, productIds: string[]): Promise<boolean> {
   const store = await readStore()
-  return Object.values(store.orders).some(
+  const allOrders = [
+    ...Object.values(store.orders),
+    ...memoryOrders.values(),
+  ]
+  return allOrders.some(
     (order) =>
       order.clientId === clientId &&
       productIds.includes(order.productId) &&

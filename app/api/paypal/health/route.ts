@@ -1,5 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { getClientIp } from '@/lib/client-ip'
+import { isIpBlockExempt } from '@/lib/ip-security'
 import { getPaypalAccessToken, getPaypalRuntimeConfig } from '@/lib/paypal-api'
+import { blockedIpResponse } from '@/lib/security-guard'
 
 export const runtime = 'nodejs'
 
@@ -16,7 +19,14 @@ type PaypalHealth = {
   error?: string
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const blocked = await blockedIpResponse(req.headers)
+  if (blocked) return blocked
+
+  if (process.env.NODE_ENV === 'production' && !isIpBlockExempt(getClientIp(req.headers))) {
+    return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
+  }
+
   const cfg = getPaypalRuntimeConfig()
   const hints: string[] = []
 

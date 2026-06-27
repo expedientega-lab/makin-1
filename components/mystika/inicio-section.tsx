@@ -1,5 +1,9 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+
+const LS_VISITOR_NAME = "mystika-visitor-name";
+
 interface InicioSectionProps {
   onTabChange: (tab: string) => void;
 }
@@ -14,9 +18,9 @@ const prizes = [
     badge: "JACKPOT",
   },
   {
-    ico: "🤖",
-    name: "Bot de Trading",
-    value: "$70",
+    ico: "💵",
+    name: "$100 USD",
+    value: "$100",
     color: "#00e5ff",
     glow: "rgba(0,229,255,0.4)",
     badge: "POPULAR",
@@ -27,14 +31,6 @@ const prizes = [
     value: "$150",
     color: "#ff6b9d",
     glow: "rgba(255,107,157,0.4)",
-    badge: null,
-  },
-  {
-    ico: "₿",
-    name: "Bitcoin",
-    value: "0.001 BTC",
-    color: "#f7931a",
-    glow: "rgba(247,147,26,0.4)",
     badge: null,
   },
   {
@@ -87,15 +83,259 @@ const features = [
 ];
 
 export function InicioSection({ onTabChange }: InicioSectionProps) {
+  const [visitorName, setVisitorName] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [nameLoading, setNameLoading] = useState(true);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [nameError, setNameError] = useState("");
+
+  useEffect(() => {
+    const cached = localStorage.getItem(LS_VISITOR_NAME);
+    if (cached) {
+      setVisitorName(cached);
+      setNameInput(cached);
+    }
+
+    fetch("/api/visitor-name")
+      .then((r) => r.json())
+      .then((data: { saved?: boolean; name?: string }) => {
+        if (data.saved && data.name) {
+          setVisitorName(data.name);
+          setNameInput(data.name);
+          localStorage.setItem(LS_VISITOR_NAME, data.name);
+        } else if (!cached) {
+          setShowNamePrompt(true);
+        }
+      })
+      .catch(() => {
+        if (!cached) setShowNamePrompt(true);
+      })
+      .finally(() => setNameLoading(false));
+  }, []);
+
+  const saveVisitorName = useCallback(async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed || nameSaving) return;
+
+    setNameSaving(true);
+    setNameError("");
+
+    try {
+      const res = await fetch("/api/visitor-name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setNameError(data.error || "No se pudo guardar tu nombre");
+        return;
+      }
+
+      setVisitorName(data.name);
+      localStorage.setItem(LS_VISITOR_NAME, data.name);
+      setShowNamePrompt(false);
+    } catch {
+      setNameError("Error de conexión. Intentá de nuevo.");
+    } finally {
+      setNameSaving(false);
+    }
+  }, [nameInput, nameSaving]);
+
   return (
     <div className="animate-[fadeup_0.4s_ease]">
       {/* ── HERO ── */}
       <div className="text-center py-4 pb-8">
-        <div className="font-mono text-[10px] sm:text-[11px] tracking-[4px] sm:tracking-[5px] text-[var(--mystik3)] flex items-center justify-center gap-3.5 mb-4">
-          <span className="flex-1 max-w-[40px] h-px bg-[var(--border)]" />
-          BIENVENIDO AL PORTAL
-          <span className="flex-1 max-w-[40px] h-px bg-[var(--border)]" />
+        {/* ── BANNER BIENVENIDA (con luces) ── */}
+        <div className="relative max-w-[640px] mx-auto mb-5 py-5 sm:py-6 px-4 sm:px-8 rounded-2xl overflow-hidden">
+          <style>{`
+            @keyframes inicio-welcome-line {
+              0%, 100% { opacity: 0.45; }
+              50% { opacity: 1; }
+            }
+            @keyframes inicio-welcome-shine {
+              0% { transform: translateX(-130%) skewX(-12deg); opacity: 0; }
+              30% { opacity: 0.45; }
+              100% { transform: translateX(200%) skewX(-12deg); opacity: 0; }
+            }
+            @keyframes inicio-name-glow {
+              0%, 100% { text-shadow: 0 0 18px rgba(179,136,255,.65), 0 0 36px rgba(179,136,255,.35), 0 0 60px rgba(179,136,255,.15); }
+              50% { text-shadow: 0 0 28px rgba(179,136,255,.9), 0 0 50px rgba(179,136,255,.5), 0 0 80px rgba(212,184,255,.25); }
+            }
+          `}</style>
+
+          <div
+            className="pointer-events-none absolute inset-0 rounded-2xl"
+            aria-hidden
+            style={{
+              background:
+                "radial-gradient(ellipse 90% 80% at 50% 0%, rgba(179,136,255,0.16) 0%, transparent 55%), radial-gradient(ellipse 70% 50% at 50% 100%, rgba(119,68,204,0.12) 0%, transparent 50%), linear-gradient(180deg, rgba(12,8,22,0.5) 0%, rgba(8,5,14,0.85) 100%)",
+              border: "1px solid rgba(179,136,255,0.28)",
+              boxShadow:
+                "inset 0 1px 0 rgba(255,255,255,0.05), 0 0 28px rgba(179,136,255,0.2), 0 0 48px rgba(179,136,255,0.08)",
+            }}
+          />
+
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-[2px] rounded-t-2xl"
+            aria-hidden
+            style={{
+              background:
+                "linear-gradient(90deg, transparent, #7744cc, #b388ff, #d4b8ff, #b388ff, #7744cc, transparent)",
+              animation: "inicio-welcome-line 2.8s ease-in-out infinite",
+            }}
+          />
+
+          <div
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"
+            aria-hidden
+          >
+            <div
+              className="absolute inset-y-0 w-[40%]"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(179,136,255,0.12), transparent)",
+                animation: "inicio-welcome-shine 5s ease-in-out infinite",
+              }}
+            />
+          </div>
+
+          <div className="relative z-10 flex items-center justify-center gap-3 sm:gap-4">
+            <span
+              className="hidden sm:block flex-1 max-w-[60px] h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, rgba(179,136,255,0.6))",
+                boxShadow: "0 0 8px rgba(179,136,255,0.4)",
+                animation: "inicio-welcome-line 2.8s ease-in-out infinite",
+              }}
+            />
+
+            {visitorName ? (
+              <div className="text-center">
+                <div
+                  className="font-mono tracking-[3px] sm:tracking-[4px] text-[var(--mystik3)] mb-1"
+                  style={{ fontSize: "clamp(11px, 2.8vw, 14px)" }}
+                >
+                  BIENVENIDO DE NUEVO,
+                </div>
+                <div
+                  className="font-display font-black tracking-[3px] sm:tracking-[5px] text-[var(--mystik)]"
+                  style={{
+                    fontSize: "clamp(22px, 6vw, 36px)",
+                    animation: "inicio-name-glow 3s ease-in-out infinite",
+                  }}
+                >
+                  {visitorName.toUpperCase()}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="font-mono tracking-[4px] sm:tracking-[5px] text-[var(--mystik3)]"
+                style={{
+                  fontSize: "clamp(13px, 3.2vw, 17px)",
+                  textShadow: "0 0 16px rgba(179,136,255,0.35)",
+                }}
+              >
+                BIENVENIDO AL PORTAL
+              </div>
+            )}
+
+            <span
+              className="hidden sm:block flex-1 max-w-[60px] h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(179,136,255,0.6), transparent)",
+                boxShadow: "0 0 8px rgba(179,136,255,0.4)",
+                animation: "inicio-welcome-line 2.8s ease-in-out infinite",
+                animationDelay: "1.4s",
+              }}
+            />
+          </div>
         </div>
+
+        {/* ── REGISTRO DE NOMBRE (evento portal) ── */}
+        {!nameLoading && showNamePrompt && (
+          <div
+            className="max-w-[480px] mx-auto mb-6 p-5 sm:p-6 rounded-2xl text-left animate-[fadeup_0.35s_ease] relative overflow-hidden"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(179,136,255,0.12) 0%, rgba(10,6,18,0.95) 100%)",
+              border: "1px solid rgba(179,136,255,0.35)",
+              boxShadow: "0 0 32px rgba(179,136,255,0.12)",
+            }}
+          >
+            <div
+              className="absolute top-0 left-0 right-0 h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent, var(--mystik), transparent)",
+              }}
+            />
+            <div className="font-mono text-[10px] tracking-[3px] text-[var(--mystik3)] mb-2">
+              ✦ IDENTIFICACIÓN DEL VIAJERO
+            </div>
+            <p className="text-[14px] sm:text-[15px] text-[var(--txt)]/90 leading-[1.8] mb-4">
+              Antes de entrar al portal, el universo necesita saber tu nombre.
+              Quedará guardado en tu conexión para que siempre te reciba al
+              volver.
+            </p>
+            <label className="font-mono text-[11px] tracking-[3px] text-[var(--mystik3)] block mb-2">
+              TU NOMBRE
+            </label>
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveVisitorName()}
+              placeholder="Escribí tu nombre..."
+              maxLength={40}
+              disabled={nameSaving}
+              autoFocus
+              className="w-full px-4 py-3.5 rounded-xl text-[16px] text-[var(--txt)] placeholder:text-[var(--txt3)] outline-none transition-all mb-3"
+              style={{
+                background: "var(--bg2)",
+                border: nameInput.trim()
+                  ? "2px solid rgba(179,136,255,0.5)"
+                  : "2px solid var(--border)",
+                boxShadow: nameInput.trim()
+                  ? "0 0 16px rgba(179,136,255,0.12)"
+                  : "none",
+              }}
+            />
+            {nameError && (
+              <p className="text-[13px] text-red-400 mb-3">{nameError}</p>
+            )}
+            <button
+              onClick={saveVisitorName}
+              disabled={!nameInput.trim() || nameSaving}
+              className="w-full py-3.5 rounded-xl font-mono text-[13px] tracking-[3px] font-black transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--mystik3), var(--mystik), #d4b8ff)",
+                color: "var(--bg0)",
+                boxShadow: "0 6px 20px rgba(179,136,255,0.3)",
+              }}
+            >
+              {nameSaving ? "GUARDANDO..." : "ENTRAR AL PORTAL"}
+            </button>
+          </div>
+        )}
+
+        {!nameLoading && visitorName && !showNamePrompt && (
+          <p className="text-[13px] font-mono text-[var(--txt2)] mb-4 tracking-[1px]">
+            Tu nombre está guardado en el portal.{" "}
+            <button
+              type="button"
+              onClick={() => setShowNamePrompt(true)}
+              className="text-[var(--mystik3)] underline underline-offset-2 hover:text-[var(--mystik)] transition-colors"
+            >
+              Cambiar
+            </button>
+          </p>
+        )}
 
         <h1
           className="font-display font-black leading-[0.92] tracking-[2px] mb-4"
@@ -239,7 +479,7 @@ export function InicioSection({ onTabChange }: InicioSectionProps) {
           <span className="flex-1 max-w-[40px] h-px bg-[var(--border)]" />
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {prizes.map((prize, i) => (
             <div
               key={i}

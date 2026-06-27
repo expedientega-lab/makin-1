@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PRODUCTS } from '@/lib/products'
+import { findProduct } from '@/lib/products'
+import {
+  DONACION_CUSTOM_PRODUCT_ID,
+  expectedDonacionAmountUsd,
+  isDonacionProduct,
+  parseCustomDonacionAmount,
+} from '@/lib/donacion-products'
 import { createPaypalOrder } from '@/lib/paypal-api'
 import { getOrCreateMkClientId } from '@/lib/mk-client-id'
 import { createPendingOrder } from '@/lib/payments-store'
+import { blockedIpResponse } from '@/lib/security-guard'
 
 export const runtime = 'nodejs'
 
@@ -35,14 +42,33 @@ function formatPaypalRouteError(error: unknown): { error: string; detail?: strin
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { productId?: string }
+    const blocked = await blockedIpResponse(req.headers)
+    if (blocked) return blocked
+
+    const body = (await req.json()) as { productId?: string; amountUsd?: number }
     const productId = body.productId || 'mystika-orbe'
-    const product = PRODUCTS.find((p) => p.id === productId)
+    const product = findProduct(productId)
     if (!product) {
       return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 })
     }
 
-    const amount = product.priceInCents / 100
+    let amount = product.priceInCents / 100
+    let storedAmountUsd: number | undefined
+
+    if (productId === DONACION_CUSTOM_PRODUCT_ID) {
+      const customAmount = parseCustomDonacionAmount(body.amountUsd)
+      if (customAmount === null) {
+        return NextResponse.json(
+          { error: 'Monto de donación inválido. Usá entre USD 1 y USD 9.999.' },
+          { status: 400 },
+        )
+      }
+      amount = customAmount
+      storedAmountUsd = customAmount
+    } else if (isDonacionProduct(productId)) {
+      storedAmountUsd = amount
+    }
+
     const clientId = await getOrCreateMkClientId()
 
     const order = (await createPaypalOrder(amount, product.description, productId)) as { id?: string }
@@ -51,7 +77,7 @@ export async function POST(req: NextRequest) {
       throw new Error('PayPal respondio una orden sin id')
     }
 
-    await createPendingOrder(paypalOrderId, clientId, productId)
+    await createPendingOrder(paypalOrderId, clientId, productId, storedAmountUsd)
     return NextResponse.json(order)
   } catch (error) {
     const formatted = formatPaypalRouteError(error)

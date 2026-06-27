@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { PaypalCheckout } from '@/components/payments/paypal-checkout'
+import { PaypalCheckout, type PaypalSuccessContext } from '@/components/payments/paypal-checkout'
 
 interface PayModalProps {
   isOpen: boolean
   onClose: () => void
-  onPaymentSuccess: () => void
+  onPaymentSuccess: (ctx: PaypalSuccessContext) => void
   productId?: string
 }
 
@@ -36,9 +36,9 @@ export function PayModal({ isOpen, onClose, onPaymentSuccess, productId = 'clawz
         <PaypalCheckout
           productId={productId}
           onError={(message) => setError(message)}
-          onSuccess={() => {
+          onSuccess={(ctx) => {
             setError(null)
-            onPaymentSuccess()
+            onPaymentSuccess(ctx)
           }}
         />
         {error && <div className="text-red-700 text-[12px] mb-3">{error}</div>}
