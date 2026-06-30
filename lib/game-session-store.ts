@@ -1,8 +1,8 @@
 import 'server-only'
 
-import { promises as fs } from 'fs'
 import path from 'path'
 import { getOrderById } from '@/lib/payments-store'
+import { readJsonStore, writeJsonStore } from '@/lib/json-file-store'
 import { isPaidStatus } from '@/lib/paypal-fulfill'
 
 interface GameSessionRecord {
@@ -25,19 +25,11 @@ const DEFAULT_STORE: GameSessionStore = { sessions: {} }
 const memorySessions = new Map<string, GameSessionRecord>()
 
 async function readStore(): Promise<GameSessionStore> {
-  await fs.mkdir(STORE_DIR, { recursive: true })
-  try {
-    await fs.access(STORE_PATH)
-  } catch {
-    await fs.writeFile(STORE_PATH, JSON.stringify(DEFAULT_STORE, null, 2), 'utf-8')
-  }
-  const raw = await fs.readFile(STORE_PATH, 'utf-8')
-  return (JSON.parse(raw) as GameSessionStore) || DEFAULT_STORE
+  return readJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE)
 }
 
 async function writeStore(store: GameSessionStore): Promise<void> {
-  await fs.mkdir(STORE_DIR, { recursive: true })
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), 'utf-8')
+  await writeJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE, store)
 }
 
 function sessionKey(orderId: string) {

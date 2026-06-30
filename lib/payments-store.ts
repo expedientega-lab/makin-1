@@ -1,7 +1,7 @@
 import 'server-only'
 
-import { promises as fs } from 'fs'
 import path from 'path'
+import { readJsonStore, writeJsonStore } from '@/lib/json-file-store'
 
 type StoredPaymentStatus =
   | 'waiting'
@@ -41,23 +41,17 @@ const DEFAULT_STORE: PaymentsStore = {
 const memoryOrders = new Map<string, StoredOrder>()
 
 async function ensureStoreExists() {
-  await fs.mkdir(STORE_DIR, { recursive: true })
-  try {
-    await fs.access(STORE_PATH)
-  } catch {
-    await fs.writeFile(STORE_PATH, JSON.stringify(DEFAULT_STORE, null, 2), 'utf-8')
-  }
+  return true
 }
 
 async function readStore(): Promise<PaymentsStore> {
   await ensureStoreExists()
-  const raw = await fs.readFile(STORE_PATH, 'utf-8')
-  return (JSON.parse(raw) as PaymentsStore) || DEFAULT_STORE
+  return readJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE)
 }
 
 async function writeStore(store: PaymentsStore): Promise<void> {
   await ensureStoreExists()
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), 'utf-8')
+  await writeJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE, store)
 }
 
 function rememberOrder(order: StoredOrder) {

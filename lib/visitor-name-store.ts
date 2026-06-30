@@ -1,7 +1,7 @@
 import "server-only"
 
-import { promises as fs } from "fs"
 import path from "path"
+import { readJsonStore, writeJsonStore } from "@/lib/json-file-store"
 
 export interface VisitorNameRecord {
   name: string
@@ -20,23 +20,17 @@ const DEFAULT_STORE: VisitorNameStoreFile = { byKey: {} }
 const memoryCache = new Map<string, VisitorNameRecord>()
 
 async function ensureStoreExists() {
-  await fs.mkdir(STORE_DIR, { recursive: true })
-  try {
-    await fs.access(STORE_PATH)
-  } catch {
-    await fs.writeFile(STORE_PATH, JSON.stringify(DEFAULT_STORE, null, 2), "utf-8")
-  }
+  return true
 }
 
 async function readStore(): Promise<VisitorNameStoreFile> {
   await ensureStoreExists()
-  const raw = await fs.readFile(STORE_PATH, "utf-8")
-  return (JSON.parse(raw) as VisitorNameStoreFile) || DEFAULT_STORE
+  return readJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE)
 }
 
 async function writeStore(store: VisitorNameStoreFile): Promise<void> {
   await ensureStoreExists()
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf-8")
+  await writeJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE, store)
 }
 
 export async function getVisitorName(key: string): Promise<VisitorNameRecord | null> {

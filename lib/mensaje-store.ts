@@ -1,7 +1,7 @@
 import "server-only"
 
-import { promises as fs } from "fs"
 import path from "path"
+import { readJsonStore, writeJsonStore } from "@/lib/json-file-store"
 import type { UniversalResponse } from "@/lib/mensaje-universo-data"
 import { MENSAJE_COOLDOWN_MS } from "@/lib/mensaje-constants"
 
@@ -33,23 +33,17 @@ const DEFAULT_STORE: MensajeStoreFile = {
 }
 
 async function ensureStoreExists() {
-  await fs.mkdir(STORE_DIR, { recursive: true })
-  try {
-    await fs.access(STORE_PATH)
-  } catch {
-    await fs.writeFile(STORE_PATH, JSON.stringify(DEFAULT_STORE, null, 2), "utf-8")
-  }
+  return true
 }
 
 async function readStore(): Promise<MensajeStoreFile> {
   await ensureStoreExists()
-  const raw = await fs.readFile(STORE_PATH, "utf-8")
-  return (JSON.parse(raw) as MensajeStoreFile) || DEFAULT_STORE
+  return readJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE)
 }
 
 async function writeStore(store: MensajeStoreFile): Promise<void> {
   await ensureStoreExists()
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf-8")
+  await writeJsonStore(STORE_DIR, STORE_PATH, DEFAULT_STORE, store)
 }
 
 function isActiveLock(lockedUntil: string, now = Date.now()): boolean {
