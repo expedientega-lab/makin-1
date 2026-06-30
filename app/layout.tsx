@@ -9,6 +9,8 @@ import { isIpBlocked } from '@/lib/ip-block-store'
 import { isIpBlockExempt } from '@/lib/ip-security'
 import './globals.css'
 
+const guardianBotEnabled = process.env.ENABLE_GUARDIAN_BOT === 'true'
+
 const cinzel = Cinzel({
   subsets: ['latin'],
   variable: '--font-cinzel',
@@ -62,7 +64,7 @@ export default async function RootLayout({
         ) : (
           <>
             {children}
-            <GuardianBot />
+            {guardianBotEnabled ? <GuardianBot /> : null}
           </>
         )}
         {!blocked && process.env.NODE_ENV === 'production' && <Analytics />}
