@@ -98,6 +98,7 @@ export function createGeneralApiTracker(maxCalls = 140, windowMs = 60_000) {
     record(url: string): boolean {
       if (!url.includes('/api/')) return false
       if (url.includes(SECURITY_API)) return false
+      if (url.includes('/api/keep-alive')) return false
       if (url.includes('/api/payments/status')) return false
       const now = Date.now()
       while (hits.length && now - hits[0] > windowMs) hits.shift()

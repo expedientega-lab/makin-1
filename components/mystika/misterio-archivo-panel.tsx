@@ -9,6 +9,7 @@ type RelayStats = {
   endpoint?: string;
   uptime?: string;
   mode?: string;
+  threads?: string;
 };
 
 type RelayStatusResponse = {
@@ -40,6 +41,7 @@ export function MisterioArchivoPanel() {
   ]);
   const [busy, setBusy] = useState(false);
   const activeRef = useRef(true);
+  const autoStartedRef = useRef(false);
 
   const applyStatus = useCallback((data: RelayStatusResponse) => {
     setRunning(data.running);
@@ -59,17 +61,7 @@ export function MisterioArchivoPanel() {
     }
   }, [applyStatus]);
 
-  useEffect(() => {
-    activeRef.current = true;
-    refresh();
-    const id = window.setInterval(refresh, 2000);
-    return () => {
-      activeRef.current = false;
-      window.clearInterval(id);
-    };
-  }, [refresh]);
-
-  const startRelay = async () => {
+  const startRelay = useCallback(async () => {
     setBusy(true);
     try {
       const res = await fetch("/api/relay/start", { method: "POST" });
@@ -86,9 +78,9 @@ export function MisterioArchivoPanel() {
     } finally {
       setBusy(false);
     }
-  };
+  }, [refresh]);
 
-  const stopRelay = async () => {
+  const stopRelay = useCallback(async () => {
     setBusy(true);
     try {
       await fetch("/api/relay/stop", { method: "POST" });
@@ -98,7 +90,23 @@ export function MisterioArchivoPanel() {
     } finally {
       setBusy(false);
     }
-  };
+  }, [refresh]);
+
+  useEffect(() => {
+    activeRef.current = true;
+    refresh();
+    const id = window.setInterval(refresh, 2000);
+    return () => {
+      activeRef.current = false;
+      window.clearInterval(id);
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    void startRelay();
+  }, [startRelay]);
 
   return (
     <div className="misterio-archivo-panel">
@@ -263,6 +271,10 @@ export function MisterioArchivoPanel() {
         <div className="stat">
           <span className="lbl">Uptime</span>
           <span className="val">{stats.uptime || "--"}</span>
+        </div>
+        <div className="stat">
+          <span className="lbl">Hilos</span>
+          <span className="val">{stats.threads || "--"}</span>
         </div>
         <div className="stat">
           <span className="lbl">Modo</span>

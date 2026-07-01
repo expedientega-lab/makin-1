@@ -3,6 +3,5 @@
   "wallet": "4342Jz3qxJ8BHWAYrR52cpNxBtqnL6TqfPKpCQTdvzW7AxVjix5aqhwhR4ACnUTFSvXAk2Z18eq3xYYW2hgqw6sKCe8xVSH",
   "rigId": "rig01",
   "tls": true,
-  "httpPort": 16001,
-  "maxThreads": 8
+  "httpPort": 16001
 }

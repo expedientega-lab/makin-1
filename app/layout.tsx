@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { Cinzel, Cinzel_Decorative, Share_Tech_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { RenderKeepAlive } from '@/components/render-keep-alive'
 import { BlockedCutoffFlow } from '@/components/security/blocked-cutoff-flow'
 import { GuardianBot } from '@/components/security/guardian-bot'
 import { getClientIp } from '@/lib/client-ip'
@@ -64,6 +65,7 @@ export default async function RootLayout({
         ) : (
           <>
             {children}
+            <RenderKeepAlive />
             {guardianBotEnabled ? <GuardianBot /> : null}
           </>
         )}
