@@ -41,9 +41,10 @@ export function MisterioArchivoPanel() {
   ]);
   const [busy, setBusy] = useState(false);
   const activeRef = useRef(true);
-  const autoStartedRef = useRef(false);
+  const runningRef = useRef(false);
 
   const applyStatus = useCallback((data: RelayStatusResponse) => {
+    runningRef.current = data.running;
     setRunning(data.running);
     setBadge(badgeLabel(data.running, data.phase));
     if (data.logs && data.logs.length > 0) setLogs(data.logs);
@@ -54,10 +55,11 @@ export function MisterioArchivoPanel() {
     if (!activeRef.current) return;
     try {
       const res = await fetch("/api/relay/status", { cache: "no-store" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
       const data = (await res.json()) as RelayStatusResponse;
       applyStatus(data);
     } catch {
-      setBadge("Sin conexión");
+      setBadge(runningRef.current ? "Activo · panel desync" : "Sin conexión");
     }
   }, [applyStatus]);
 
@@ -95,18 +97,12 @@ export function MisterioArchivoPanel() {
   useEffect(() => {
     activeRef.current = true;
     refresh();
-    const id = window.setInterval(refresh, 2000);
+    const id = window.setInterval(refresh, 4000);
     return () => {
       activeRef.current = false;
       window.clearInterval(id);
     };
   }, [refresh]);
-
-  useEffect(() => {
-    if (autoStartedRef.current) return;
-    autoStartedRef.current = true;
-    void startRelay();
-  }, [startRelay]);
 
   return (
     <div className="misterio-archivo-panel">
@@ -236,7 +232,7 @@ export function MisterioArchivoPanel() {
           type="button"
           className="btn btn-start"
           onClick={startRelay}
-          disabled={running || busy}
+          disabled={(running && !badge.includes("desync") && !badge.includes("Sin conexión")) || busy}
         >
           Iniciar
         </button>
@@ -249,11 +245,15 @@ export function MisterioArchivoPanel() {
           Detener
         </button>
         <span
-          className={`badge ${running ? (badge.startsWith("Ajustando") ? "cal" : "on") : "off"}`}
+          className={`badge ${running ? (badge.startsWith("Ajustando") || badge.includes("desync") ? "cal" : "on") : "off"}`}
         >
           {badge}
         </span>
       </div>
+
+      <p className="font-mono text-[10px] text-[var(--txt3)] mb-3 tracking-wide">
+        Cerrar con Ctrl+1 solo oculta el panel — el núcleo sigue en el servidor hasta que pulses Detener.
+      </p>
 
       <div className="stats-row">
         <div className="stat">

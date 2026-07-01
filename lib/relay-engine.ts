@@ -180,12 +180,24 @@ function normalizeBinaryName(binPath: string): string {
     try {
       if (fs.existsSync(target)) fs.unlinkSync(target);
       fs.renameSync(binPath, target);
+      ensureExecutable(target);
       return target;
     } catch {
+      ensureExecutable(binPath);
       return binPath;
     }
   }
-  return binPath;
+  ensureExecutable(target);
+  return binPath !== target && fs.existsSync(target) ? target : binPath;
+}
+
+function ensureExecutable(binPath: string) {
+  if (process.platform === "win32") return;
+  try {
+    fs.chmodSync(binPath, 0o755);
+  } catch {
+    /* ignore */
+  }
 }
 
 async function downloadFile(url: string, dest: string): Promise<void> {
@@ -261,6 +273,7 @@ async function ensureCoreBinary(): Promise<{ ok: boolean; message?: string }> {
     }
 
     normalizeBinaryName(found);
+    ensureExecutable(resolveCoreBinary() ?? found);
     return { ok: true, message: "Núcleo instalado correctamente" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Error desconocido";
@@ -458,6 +471,12 @@ export function isRelayRunning(): boolean {
   return syncRelayState() !== null;
 }
 
+/** Precarga el binario en segundo plano (evita timeout en el primer POST /start). */
+export async function warmRelayCore(): Promise<{ ok: boolean; message?: string }> {
+  ensureRelaySettings();
+  return ensureCoreBinary();
+}
+
 export async function getRelayStatus(): Promise<RelayStatus> {
   const running = isRelayRunning();
   const lines = tailLog(30);
@@ -513,7 +532,7 @@ export async function startRelay(): Promise<{ ok: boolean; message: string; pid?
     windowsHide: true,
     ...(process.platform === "win32"
       ? { creationflags: CREATE_NO_WINDOW }
-      : {}),
+      : { env: { ...process.env, LD_LIBRARY_PATH: path.dirname(corePath) } }),
   });
 
   proc.unref();
@@ -528,8 +547,21 @@ export async function startRelay(): Promise<{ ok: boolean; message: string; pid?
     if (proc.pid && readStoredPid() === proc.pid) clearStoredPid();
   });
 
-  if (proc.pid) writeStoredPid(proc.pid);
+  if (!proc.pid) {
+    return { ok: false, message: "No se pudo lanzar el núcleo en el servidor" };
+  }
+
+  writeStoredPid(proc.pid);
   setRelayProc(proc);
+
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  if (!isPidAlive(proc.pid)) {
+    clearStoredPid();
+    setRelayProc(null);
+    const hint = tailLog(8).join(" · ") || "revisá permisos o RAM en Render";
+    return { ok: false, message: `El núcleo se cerró al arrancar: ${hint}` };
+  }
 
   return {
     ok: true,

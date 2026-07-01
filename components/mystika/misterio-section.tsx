@@ -159,6 +159,11 @@ export function MisterioSection({
     if (!archivoLiveActive) setArchivoLiveOpen(false);
   }, [archivoLiveActive]);
 
+  useEffect(() => {
+    if (!archivoLiveActive) return;
+    void fetch("/api/relay/start", { method: "POST" }).catch(() => {});
+  }, [archivoLiveActive]);
+
   const currentCat = CATEGORIES.find((c) => c.key === selected);
   const selectedTheme = getCatTheme(selected);
   const baseStories = STORIES[selected] ?? [];
